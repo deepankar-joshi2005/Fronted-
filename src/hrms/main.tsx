@@ -1,0 +1,16 @@
+import { createRoot } from "react-dom/client";
+import "./index.css";
+import App from "./App.tsx";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { SocketProvider } from "@/contexts/SocketContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+
+createRoot(document.getElementById("root")!).render(
+  <ThemeProvider>
+    <AuthProvider>
+      <SocketProvider>
+        <App />
+      </SocketProvider>
+    </AuthProvider>
+  </ThemeProvider>
+);

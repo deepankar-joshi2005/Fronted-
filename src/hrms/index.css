@@ -1,0 +1,573 @@
+@import "tailwindcss";
+
+@plugin "tailwindcss-animate";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-title: var(--sidebar-title);
+  --color-sidebar-text-muted: var(--sidebar-text-muted);
+  --color-sidebar-hover-bg: var(--sidebar-hover-bg);
+
+  /* SaaS Theme Color Variables for Tailwind */
+  --color-primary-blue: var(--blue-primary);
+  --color-navy: var(--blue-navy);
+  --color-accent-blue: var(--blue-accent);
+  --color-soft-blue: var(--blue-soft);
+  --color-mono-black: var(--mono-black);
+  --color-mono-gray: var(--mono-gray);
+  --color-mono-light-gray: var(--mono-light-gray);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* SaaS Blue Theme Color Palette */
+  --blue-primary: #2563EB;
+  --blue-navy: #1E293B;
+  --blue-soft: #EFF6FF;
+  --blue-accent: #3B82F6;
+  --mono-black: #0F172A;
+  --mono-gray: #64748B;
+  --mono-light-gray: #E2E8F0;
+
+  /* Background Colors - Clean and Modern */
+  --background: #F8FAFC;
+  --card: #FFFFFF;
+  --popover: #FFFFFF;
+
+  /* Foreground Text Colors */
+  --foreground: #0F172A;
+  --card-foreground: #1E293B;
+  --popover-foreground: #1E293B;
+
+  /* Primary SaaS Colors (Blue) */
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary Colors */
+  --secondary: #F1F5F9;
+  --secondary-foreground: #1E293B;
+
+  /* Muted Colors */
+  --muted: #F8FAFC;
+  --muted-foreground: #64748B;
+
+  /* Accent Colors (Light Blue) */
+  --accent: #DBEAFE;
+  --accent-foreground: #1E40AF;
+
+  /* Destructive */
+  --destructive: #EF4444;
+
+  /* Borders & Inputs */
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #3B82F6;
+
+  /* Chart Colors using Blue palette */
+  --chart-1: #2563EB;
+  --chart-2: #3B82F6;
+  --chart-3: #60A5FA;
+  --chart-4: #1E293B;
+  --chart-5: #94A3B8;
+
+  /* Sidebar Colors - Premium Navy */
+  --sidebar: #1E293B;
+  --sidebar-foreground: #F8FAFC;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(59, 130, 246, 0.1);
+  --sidebar-accent-foreground: #3B82F6;
+  --sidebar-border: rgba(226, 232, 240, 0.1);
+  --sidebar-ring: #3B82F6;
+  --sidebar-title: #94A3B8;
+  --sidebar-text-muted: #94A3B8;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.03);
+  /* STEM-themed Colors for Premium Login Backgrounds */
+  --stem-technology: #0F172A; /* Deep Navy/Indigo */
+  --soft-engineering: #3B82F6; /* Tech Blue */
+  --soft-science: #8B5CF6; /* Science Violet */
+  --soft-mathematics: #06B6D4; /* Math Cyan */
+
+  /* Status palette (fixed roles — validated against light + dark surfaces) */
+  --status-good: #16A34A;
+  --status-warning: #D97706;
+  --status-critical: #DC2626;
+
+  /* Categorical palette for identity charts (department distribution, etc.)
+     — validated CVD-safe ordering, do not reshuffle */
+  --cat-1: #2563EB;
+  --cat-2: #0891B2;
+  --cat-3: #7C3AED;
+  --cat-4: #DB2777;
+  --cat-5: #EA580C;
+  --cat-other: #64748B;
+}
+
+.dark {
+  --cat-other: #94A3B8;
+
+  /* ... rest of dark theme colors ... */
+  --background: #020617;
+  --card: #1E293B;
+  --popover: #0F172A;
+
+  /* Foreground Text Colors */
+  --foreground: #F8FAFC;
+  --card-foreground: #F8FAFC;
+  --popover-foreground: #F8FAFC;
+
+  /* Primary Colors */
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary Colors */
+  --secondary: #334155;
+  --secondary-foreground: #F1F5F9;
+
+  /* Muted Colors */
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+
+  /* Accent Colors */
+  --accent: rgba(59, 130, 246, 0.2);
+  --accent-foreground: #60A5FA;
+
+  /* Destructive */
+  --destructive: #EF4444;
+
+  /* Borders & Inputs */
+  --border: #334155;
+  --input: #334155;
+  --ring: #3B82F6;
+
+  /* Chart Colors */
+  --chart-1: #2563EB;
+  --chart-2: #3B82F6;
+  --chart-3: #60A5FA;
+  --chart-4: #1E293B;
+  --chart-5: #94A3B8;
+
+  /* Sidebar Colors */
+  --sidebar: #0F172A;
+  --sidebar-foreground: #F8FAFC;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(59, 130, 246, 0.1);
+  --sidebar-accent-foreground: #3B82F6;
+  --sidebar-border: rgba(226, 232, 240, 0.1);
+  --sidebar-ring: #3B82F6;
+  --sidebar-title: #94A3B8;
+  --sidebar-text-muted: #94A3B8;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.03);
+
+  /* STEM-themed Colors for Premium Login Backgrounds (Dark Mode) */
+  --stem-technology: #020617; /* Even Deeper Navy */
+  --soft-engineering: #2563EB;
+  --soft-science: #7C3AED;
+  --soft-mathematics: #0891B2;
+}
+
+/* Pre-existing public pages (Login, Signup, Landing) were designed against the
+   original light palette and predate the HRMS app's dark theme. This class
+   pins that exact light snapshot so those pages render unchanged regardless
+   of the app-wide dark/light theme toggle. */
+.force-light-theme {
+  --background: #F8FAFC;
+  --card: #FFFFFF;
+  --popover: #FFFFFF;
+  --foreground: #0F172A;
+  --card-foreground: #1E293B;
+  --popover-foreground: #1E293B;
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #1E293B;
+  --muted: #F8FAFC;
+  --muted-foreground: #64748B;
+  --accent: #DBEAFE;
+  --accent-foreground: #1E40AF;
+  --destructive: #EF4444;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #3B82F6;
+  --chart-1: #2563EB;
+  --chart-2: #3B82F6;
+  --chart-3: #60A5FA;
+  --chart-4: #1E293B;
+  --chart-5: #94A3B8;
+  --stem-technology: #0F172A;
+  --soft-engineering: #3B82F6;
+  --soft-science: #8B5CF6;
+  --soft-mathematics: #06B6D4;
+}
+
+.force-light-theme .bg-gray-50,
+.force-light-theme .bg-gray-100,
+.force-light-theme .bg-gray-200,
+.force-light-theme .bg-slate-100,
+.force-light-theme .bg-slate-200,
+.force-light-theme .bg-slate-50 {
+  background-color: #F8FAFC !important;
+}
+
+.force-light-theme .text-gray-900,
+.force-light-theme .text-gray-800,
+.force-light-theme .text-gray-700,
+.force-light-theme .text-gray-500,
+.force-light-theme .text-gray-400,
+.force-light-theme .text-slate-800 {
+  color: #0F172A !important;
+}
+
+.force-light-theme .text-gray-600,
+.force-light-theme .text-slate-600,
+.force-light-theme .text-slate-700,
+.force-light-theme .text-gray-300,
+.force-light-theme .text-slate-500 {
+  color: #64748B !important;
+}
+
+.force-light-theme .bg-white {
+  background-color: #FFFFFF !important;
+}
+
+.force-light-theme .border-gray-200,
+.force-light-theme .border-gray-300,
+.force-light-theme .border-gray-400,
+.force-light-theme .border-slate-200,
+.force-light-theme .border-slate-300 {
+  border-color: #E2E8F0 !important;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  html,
+  #root {
+    height: 100%;
+    background-color: var(--background);
+  }
+
+  button {
+    @apply hover:cursor-pointer;
+  }
+
+  /* Override common hardcoded classes with theme colors */
+  .bg-gray-50,
+  .bg-gray-100,
+  .bg-gray-200,
+  .bg-slate-100,
+  .bg-slate-200,
+  .bg-slate-50 {
+    background-color: var(--background) !important;
+  }
+
+  .text-gray-900,
+  .text-gray-800,
+  .text-gray-700,
+  .text-gray-500,
+  .text-gray-400,
+  .text-slate-800 {
+    color: var(--foreground) !important;
+  }
+
+  /* Apply theme color to headings outside sidebar */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--foreground);
+  }
+
+  /* Override for sidebar headings - must come after the general rule */
+  [data-sidebar] h1,
+  [data-sidebar] h2,
+  [data-sidebar] h3,
+  [data-sidebar] h4,
+  [data-sidebar] h5,
+  [data-sidebar] h6 {
+    color: inherit !important;
+  }
+
+  .text-gray-600,
+  .text-slate-600,
+  .text-slate-700,
+  .text-gray-300,
+  .text-slate-500 {
+    color: var(--muted-foreground) !important;
+  }
+
+  .bg-white {
+    background-color: var(--card) !important;
+  }
+
+  .border-gray-200,
+  .border-gray-300,
+  .border-gray-400,
+  .border-slate-200,
+  .border-slate-300 {
+    border-color: var(--border) !important;
+  }
+
+  /* Ensure main content areas use theme background */
+  main {
+    background-color: var(--background) !important;
+    color: var(--foreground) !important;
+  }
+
+  /* Ensure default text uses theme color */
+  p,
+  span,
+  div,
+  a {
+    color: inherit;
+  }
+
+  /* Links */
+  a {
+    color: var(--primary);
+  }
+
+  a:hover {
+    color: var(--accent);
+  }
+
+  /* Tables - default theming */
+  table {
+    color: var(--foreground);
+    border-color: var(--border);
+  }
+
+  thead {
+    background-color: var(--muted);
+  }
+
+  th,
+  td {
+    border-color: var(--border);
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: var(--muted);
+  }
+
+  /* Forms - inputs/selects/textareas */
+  input,
+  select,
+  textarea {
+    background-color: var(--card);
+    color: var(--foreground);
+    border-color: var(--input);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 30%, transparent);
+    border-color: var(--ring);
+  }
+
+  /* Buttons (generic fallbacks when not using variants) */
+  button {
+    border-color: var(--border);
+  }
+
+  button:hover {
+    filter: brightness(0.98);
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ===== Premium elevation system ===== */
+  .shadow-premium-xs {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  .shadow-premium-sm {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px -2px rgba(15, 23, 42, 0.06);
+  }
+
+  .shadow-premium {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px -8px rgba(15, 23, 42, 0.1);
+  }
+
+  .shadow-premium-lg {
+    box-shadow: 0 4px 10px -2px rgba(15, 23, 42, 0.08), 0 20px 40px -16px rgba(15, 23, 42, 0.18);
+  }
+
+  .card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px -2px rgba(15, 23, 42, 0.08), 0 20px 40px -16px rgba(15, 23, 42, 0.18);
+  }
+
+  .card-premium {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+  }
+
+  /* Subtle noise-free gradient accents for premium surfaces */
+  .bg-surface-gradient {
+    background: linear-gradient(180deg, color-mix(in oklab, var(--primary) 4%, var(--card)) 0%, var(--card) 60%);
+  }
+
+  .text-gradient-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--soft-science, #8b5cf6) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .sidebar-gradient-bg {
+    background-color: var(--sidebar);
+    background-image: linear-gradient(180deg, color-mix(in oklab, white 4%, var(--sidebar)) 0%, var(--sidebar) 40%, color-mix(in oklab, black 12%, var(--sidebar)) 100%);
+  }
+}
+
+/* Sidebar Scrollbar Styling */
+/* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-ring) transparent;
+} */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--sidebar-ring);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--primary);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 20px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--primary);
+}
+
+@layer utilities {
+  .animate-rotate-loader {
+    animation: rotateAnimation 3s linear infinite;
+    transform: rotate(30deg) scale(0.77);
+  }
+}
+
+.paper-leaf {
+  width: 0;
+  height: 0;
+  border-left: 30px solid transparent;
+  border-right: 30px solid transparent;
+  border-bottom: 50px solid;
+  clip-path: ellipse(50% 50% at 50% 109%);
+  border-top-left-radius: 222px;
+  border-top-right-radius: 222px;
+}
+
+.paper-base {
+  position: absolute;
+  right: -1px;
+  bottom: 0;
+  width: 30px;
+  height: 20.5px;
+  border-bottom-right-radius: 2px;
+}
+
+@keyframes rotateAnimation {
+  from {
+    transform: rotate(30deg) scale(0.77);
+  }
+
+  to {
+    transform: rotate(390deg) scale(0.77);
+  }
+}
