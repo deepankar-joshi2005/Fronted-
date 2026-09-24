@@ -10,6 +10,7 @@ import {
   SidebarTitle,
   SidebarToggle,
   SidebarGroup,
+  CollapsibleSidebarGroup,
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/collapsible-sidebar";
@@ -213,143 +214,124 @@ function HRMSManagerLayoutInner({ children }: Props) {
 
         {/* 🔥 PROPER SPACING LIKE ADMIN */}
         <SidebarContent className="space-y-4">
-          {/* 📊 Dashboard */}
-          <SidebarGroup label="Dashboard">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/manager/dashboard"
-                icon={LayoutDashboard}
-              >
-                Overview
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          {/* Dashboard — standalone link, no group/expand */}
+          <SidebarNavItem to="/hrms/manager/dashboard" icon={LayoutDashboard}>
+            Dashboard
+          </SidebarNavItem>
 
-          {/* 👥 Team */}
-          <SidebarGroup label="Team">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/manager/team" icon={Users}>
-                Team Members
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/manager/team-attendance"
-                icon={CalendarDays}
-              >
-                Team Attendance
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/manager/leave-calendar"
-                icon={ClipboardList}
-              >
-                Holiday Calendar
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/manager/leaves" icon={CheckCircle}>
-                Leaves Employee
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/manager/performance/metrics"
-                icon={BarChart3}
-              >
-                Performance Metrics
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Team"
+            icon={Users}
+            paths={[
+              "/hrms/manager/team",
+              "/hrms/manager/team-attendance",
+              "/hrms/manager/leave-calendar",
+              "/hrms/manager/leaves",
+              "/hrms/manager/performance/metrics",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/manager/team" icon={Users}>
+              Team Members
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/team-attendance" icon={CalendarDays}>
+              Team Attendance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/leave-calendar" icon={ClipboardList}>
+              Holiday Calendar
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/leaves" icon={CheckCircle}>
+              Leaves Employee
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/performance/metrics" icon={BarChart3}>
+              Performance Metrics
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* ✅ Approvals */}
-          <SidebarGroup label="Approvals">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/manager/approvals/leaves"
-                icon={ClipboardList}
-              >
-                Leave Requests
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/manager/approvals/attendance"
-                icon={Clock}
-              >
-                Attendance Corrections
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/manager/approvals/overtime"
-                icon={Clock}
-              >
-                Overtime Requests
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/manager/approvals/expenses"
-                icon={Receipt}
-              >
-                Expense / Reimbursement
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/manager/approvals/travel" icon={Plane}>
-                Travel Requests
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/manager/approvals/profile-updates"
-                icon={UserCog}
-              >
-                Profile Update Requests
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Approvals"
+            icon={ClipboardList}
+            paths={[
+              "/hrms/manager/approvals/leaves",
+              "/hrms/manager/approvals/attendance",
+              "/hrms/manager/approvals/overtime",
+              "/hrms/manager/approvals/expenses",
+              "/hrms/manager/approvals/travel",
+              "/hrms/manager/approvals/profile-updates",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/manager/approvals/leaves" icon={ClipboardList}>
+              Leave Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/approvals/attendance" icon={Clock}>
+              Attendance Corrections
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/approvals/overtime" icon={Clock}>
+              Overtime Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/approvals/expenses" icon={Receipt}>
+              Expense / Reimbursement
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/approvals/travel" icon={Plane}>
+              Travel Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/approvals/profile-updates" icon={UserCog}>
+              Profile Update Requests
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 📈 Performance */}
-          <SidebarGroup label="Performance">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/manager/performance/goals"
-                icon={Target}
-              >
-                Goals / OKRs
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/manager/performance/appraisals"
-                icon={BarChart3}
-              >
-                Appraisals
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/manager/performance/feedback"
-                icon={Star}
-              >
-                Feedback & Ratings
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Performance"
+            icon={Target}
+            paths={["/hrms/manager/performance/goals", "/hrms/manager/performance/appraisals", "/hrms/manager/performance/feedback"]}
+          >
+            <SidebarNavItem to="/hrms/manager/performance/goals" icon={Target}>
+              Goals / OKRs
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/performance/appraisals" icon={BarChart3}>
+              Appraisals
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/manager/performance/feedback" icon={Star}>
+              Feedback & Ratings
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 🧑‍💼 Recruitment */}
-          <SidebarGroup label="Recruitment">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/manager/interviews" icon={GitBranch}>
-                Interview Feedback
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup label="Recruitment" icon={GitBranch} paths={["/hrms/manager/interviews"]}>
+            <SidebarNavItem to="/hrms/manager/interviews" icon={GitBranch}>
+              Interview Feedback
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 👤 Self Service */}
-          <SidebarGroup label="Self Service">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/self-service/profile" icon={User}>
-                My Profile
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/attendance" icon={Clock}>
-                My Attendance
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/leave" icon={ClipboardList}>
-                My Leave Request
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/payroll" icon={Wallet}>
-                My Payroll
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/documents" icon={FileUp}>
-                My Documents
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/requests" icon={FileText}>
-                My Requests
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Self Service"
+            icon={User}
+            paths={[
+              "/hrms/self-service/profile",
+              "/hrms/self-service/attendance",
+              "/hrms/self-service/leave",
+              "/hrms/self-service/payroll",
+              "/hrms/self-service/documents",
+              "/hrms/self-service/requests",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/self-service/profile" icon={User}>
+              My Profile
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/attendance" icon={Clock}>
+              My Attendance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/leave" icon={ClipboardList}>
+              My Leave Request
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/payroll" icon={Wallet}>
+              My Payroll
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/documents" icon={FileUp}>
+              My Documents
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/requests" icon={FileText}>
+              My Requests
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
         </SidebarContent>
 
         <SidebarFooter>

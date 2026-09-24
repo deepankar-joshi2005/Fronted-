@@ -10,6 +10,7 @@ import {
   SidebarTitle,
   SidebarToggle,
   SidebarGroup,
+  CollapsibleSidebarGroup,
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/collapsible-sidebar";
@@ -209,101 +210,99 @@ function HRMSFinanceManagerLayoutInner({ children }: Props) {
 
         {/* ================= CONTENT ================= */}
         <SidebarContent className="space-y-4">
-          {/* 📊 Dashboard */}
-          <SidebarGroup label="Dashboard">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/finance/dashboard" icon={LayoutDashboard}>
-                Overview
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          {/* Dashboard — standalone link, no group/expand */}
+          <SidebarNavItem to="/hrms/finance/dashboard" icon={LayoutDashboard}>
+            Dashboard
+          </SidebarNavItem>
 
-          {/* 💳 Payment Requests */}
-          <SidebarGroup label="Payment Requests">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/finance/payment-requests" icon={CircleDollarSign}>
-                Payment Requests
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup label="Payment Requests" icon={CircleDollarSign} paths={["/hrms/finance/payment-requests"]}>
+            <SidebarNavItem to="/hrms/finance/payment-requests" icon={CircleDollarSign}>
+              Payment Requests
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 💰 Payroll Management */}
-          <SidebarGroup label="Payroll Management">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/finance/payroll/review" icon={FileCheck}>
-                Payroll Review
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/finance/payroll/disbursement" icon={IndianRupee}>
-                Salary Disbursement
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Payroll Management"
+            icon={IndianRupee}
+            paths={["/hrms/finance/payroll/review", "/hrms/finance/payroll/disbursement"]}
+          >
+            <SidebarNavItem to="/hrms/finance/payroll/review" icon={FileCheck}>
+              Payroll Review
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/finance/payroll/disbursement" icon={IndianRupee}>
+              Salary Disbursement
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 🧾 Reimbursements & Expenses */}
-          <SidebarGroup label="Reimbursements & Expenses">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/finance/reimbursements" icon={Receipt}>
-                Reimbursement Requests
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/finance/expenses" icon={Wallet}>
-                Expense Claims
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Reimbursements & Expenses"
+            icon={Receipt}
+            paths={["/hrms/finance/reimbursements", "/hrms/finance/expenses"]}
+          >
+            <SidebarNavItem to="/hrms/finance/reimbursements" icon={Receipt}>
+              Reimbursement Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/finance/expenses" icon={Wallet}>
+              Expense Claims
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* ✈️ Travel & Advance */}
-          <SidebarGroup label="Travel & Advance">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/finance/travel/advances" icon={Plane}>
-                Travel Advances
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/finance/travel/reconciliation" icon={FileText}>
-                Travel Reconciliation
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Travel & Advance"
+            icon={Plane}
+            paths={["/hrms/finance/travel/advances", "/hrms/finance/travel/reconciliation"]}
+          >
+            <SidebarNavItem to="/hrms/finance/travel/advances" icon={Plane}>
+              Travel Advances
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/finance/travel/reconciliation" icon={FileText}>
+              Travel Reconciliation
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 🚪 Offboarding */}
-          <SidebarGroup label="Offboarding">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/finance/offboarding/clearance-requests" icon={ClipboardCheck}>
-                Clearance Requests
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup label="Offboarding" icon={ClipboardCheck} paths={["/hrms/finance/offboarding/clearance-requests"]}>
+            <SidebarNavItem to="/hrms/finance/offboarding/clearance-requests" icon={ClipboardCheck}>
+              Clearance Requests
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 🛡️ Statutory Compliance */}
-          <SidebarGroup label="Statutory Compliance">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/finance/statutory/reports" icon={FileText}>
-                Statutory Reports
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup label="Statutory Compliance" icon={FileText} paths={["/hrms/finance/statutory/reports"]}>
+            <SidebarNavItem to="/hrms/finance/statutory/reports" icon={FileText}>
+              Statutory Reports
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 👤 Self Service */}
-          <SidebarGroup label="Self Service">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/self-service/profile" icon={User}>
-                My Profile
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/attendance" icon={Clock}>
-                My Attendance
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/leave" icon={ClipboardList}>
-                My Leave Request
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/payroll" icon={Wallet}>
-                My Payroll
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/documents" icon={FileUp}>
-                My Documents
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/requests" icon={FileText}>
-                My Requests
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Self Service"
+            icon={User}
+            paths={[
+              "/hrms/self-service/profile",
+              "/hrms/self-service/attendance",
+              "/hrms/self-service/leave",
+              "/hrms/self-service/payroll",
+              "/hrms/self-service/documents",
+              "/hrms/self-service/requests",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/self-service/profile" icon={User}>
+              My Profile
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/attendance" icon={Clock}>
+              My Attendance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/leave" icon={ClipboardList}>
+              My Leave Request
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/payroll" icon={Wallet}>
+              My Payroll
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/documents" icon={FileUp}>
+              My Documents
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/requests" icon={FileText}>
+              My Requests
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
         </SidebarContent>
 
         {/* ================= FOOTER ================= */}

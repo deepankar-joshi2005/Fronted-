@@ -14,6 +14,7 @@ import LandingPage from "../pages/public/LandingPage.jsx";
 import LoginPage from "../pages/public/LoginPage.jsx";
 import SignupPage from "../pages/public/SignupPage.jsx";
 import NotFoundPage from "../pages/public/NotFoundPage.jsx";
+import PublicEmployeeFormPage from "../pages/public/PublicEmployeeFormPage.jsx";
 
 import DashboardHome from "../pages/dashboard/DashboardHome.jsx";
 import ComingSoonPage from "../pages/dashboard/ComingSoonPage.jsx";
@@ -23,6 +24,8 @@ import FirmBusinessClientsPage from "../pages/firm-admin/BusinessClientsPage.jsx
 import ClientPayrollPage from "../pages/firm-admin/payroll/ClientPayrollPage.jsx";
 import ClientPayrollRunDetailPage from "../pages/firm-admin/payroll/ClientPayrollRunDetailPage.jsx";
 import ClientSalaryStructurePage from "../pages/firm-admin/payroll/ClientSalaryStructurePage.jsx";
+import ClientEmployeeDetailsPage from "../pages/firm-admin/payroll/ClientEmployeeDetailsPage.jsx";
+import ClientPaymentFilePage from "../pages/firm-admin/payroll/ClientPaymentFilePage.jsx";
 import PayrollManagementPage from "../pages/firm-admin/payroll/PayrollManagementPage.jsx";
 import UsersPage from "../pages/super-admin/UsersPage.jsx";
 import BillingPage from "../pages/super-admin/BillingPage.jsx";
@@ -37,6 +40,8 @@ import CrmPage from "../pages/firm-admin/CrmPage.jsx";
 import CompliancePage from "../pages/firm-admin/CompliancePage.jsx";
 import FinanceTrackerPage from "../pages/firm-admin/finance-tracker/FinanceTrackerPage.jsx";
 import ClientFinanceWorkspacePage from "../pages/firm-admin/finance-tracker/ClientFinanceWorkspacePage.jsx";
+import ClientAdminEmployeesPage from "../pages/client-admin/EmployeesPage.jsx";
+import ClientAdminSalaryStructurePage from "../pages/client-admin/SalaryStructurePage.jsx";
 
 function GuestOnly({ children }) {
   const { isAuthenticated, user } = useAuth();
@@ -91,6 +96,8 @@ export default function AppRoutes() {
         }
       />
 
+      <Route path="/onboard/:token" element={<PublicEmployeeFormPage />} />
+
       <Route element={<ProtectedRoute />}>
         <Route path="/:roleBase" element={<RoleBaseRoute />}>
           <Route element={<DashboardLayout />}>
@@ -120,7 +127,14 @@ export default function AppRoutes() {
               <Route path="finance-tracker/:profileId" element={<ClientFinanceWorkspacePage />} />
               <Route path="clients/:clientId/payroll" element={<ClientPayrollPage />} />
               <Route path="clients/:clientId/payroll/:month" element={<ClientPayrollRunDetailPage />} />
+              <Route path="clients/:clientId/payroll/:month/payment-file" element={<ClientPaymentFilePage />} />
               <Route path="clients/:clientId/salary-structure" element={<ClientSalaryStructurePage />} />
+              <Route path="clients/:clientId/employee-details" element={<ClientEmployeeDetailsPage />} />
+            </Route>
+
+            <Route element={<RoleRoute roles={[ROLES.BUSINESS_CLIENT_ADMIN]} />}>
+              <Route path="employees" element={<ClientAdminEmployeesPage />} />
+              <Route path="salary-structure" element={<ClientAdminSalaryStructurePage />} />
             </Route>
 
             <Route element={<RoleRoute roles={[ROLES.SUPER_ADMIN, ROLES.CA_FIRM_ADMIN, ROLES.CA_FIRM_STAFF]} />}>

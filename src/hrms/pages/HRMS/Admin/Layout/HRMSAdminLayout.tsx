@@ -9,6 +9,7 @@ import {
   SidebarTitle,
   SidebarToggle,
   SidebarGroup,
+  CollapsibleSidebarGroup,
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/collapsible-sidebar";
@@ -84,125 +85,90 @@ export default function HRMSAdminLayout({ children }: Props) {
 
         {/* ================= CONTENT ================= */}
         <SidebarContent className="space-y-4">
-          {/* 📊 Dashboard */}
-          <SidebarGroup label="Dashboard">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/admin/dashboard" icon={LayoutDashboard}>
-                Overview
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          {/* Dashboard — standalone link, no group/expand */}
+          <SidebarNavItem to="/hrms/admin/dashboard" icon={LayoutDashboard}>
+            Dashboard
+          </SidebarNavItem>
 
-          {/* 🧾 Admin Onboarding */}
-          <SidebarGroup label="Onboarding (Admin)">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/admin/onboarding/workstation"
-                icon={Laptop}
-              >
-                Workstation / Desk Allocation
-              </SidebarNavItem>
+          <CollapsibleSidebarGroup
+            label="Onboarding (Admin)"
+            icon={Laptop}
+            paths={[
+              "/hrms/admin/onboarding/workstation",
+              "/hrms/admin/onboarding/id-card",
+              "/hrms/admin/onboarding/locker",
+              "/hrms/admin/onboarding/transport",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/admin/onboarding/workstation" icon={Laptop}>
+              Workstation / Desk Allocation
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/admin/onboarding/id-card" icon={IdCard}>
+              ID Card & Access Card
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/admin/onboarding/locker" icon={Armchair}>
+              Locker / Cabin Assignment
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/admin/onboarding/transport" icon={Car}>
+              Transport / Parking
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem
-                to="/hrms/admin/onboarding/id-card"
-                icon={IdCard}
-              >
-                ID Card & Access Card
-              </SidebarNavItem>
+          <CollapsibleSidebarGroup
+            label="Facility & Asset Support"
+            icon={Boxes}
+            paths={["/hrms/admin/assets/non-it", "/hrms/admin/assets/stationery"]}
+          >
+            <SidebarNavItem to="/hrms/admin/assets/non-it" icon={Boxes}>
+              Non-IT Asset Inventory
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/admin/assets/stationery" icon={PackageCheck}>
+              Stationery & Safety Kits
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem
-                to="/hrms/admin/onboarding/locker"
-                icon={Armchair}
-              >
-                Locker / Cabin Assignment
-              </SidebarNavItem>
+          <CollapsibleSidebarGroup
+            label="Offboarding & Clearance"
+            icon={ShieldCheck}
+            paths={[
+              "/hrms/admin/offboarding/id-return",
+              "/hrms/admin/offboarding/workstation",
+              "/hrms/admin/offboarding/assets",
+              "/hrms/admin/offboarding/final-clearance",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/admin/offboarding/id-return" icon={IdCard}>
+              ID Card Return
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/admin/offboarding/workstation" icon={RefreshCcw}>
+              Workstation Clearance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/admin/offboarding/assets" icon={Boxes}>
+              Asset Return Verification
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/admin/offboarding/final-clearance" icon={ShieldCheck}>
+              Final Admin Clearance
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem
-                to="/hrms/admin/onboarding/transport"
-                icon={Car}
-              >
-                Transport / Parking
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Data Management"
+            icon={Boxes}
+            paths={["/hrms/SuperAdmin/data-management/import-export", "/hrms/SuperAdmin/data-management/hard-delete"]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/data-management/import-export" icon={Boxes}>
+              Import / Export Data
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/data-management/hard-delete" icon={ShieldCheck}>
+              Hard Delete
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 🏢 Facility & Asset Support */}
-          <SidebarGroup label="Facility & Asset Support">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/admin/assets/non-it"
-                icon={Boxes}
-              >
-                Non-IT Asset Inventory
-              </SidebarNavItem>
-
-              <SidebarNavItem
-                to="/hrms/admin/assets/stationery"
-                icon={PackageCheck}
-              >
-                Stationery & Safety Kits
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          {/* 🚪 Offboarding & Admin Clearance */}
-          <SidebarGroup label="Offboarding & Clearance">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/admin/offboarding/id-return"
-                icon={IdCard}
-              >
-                ID Card Return
-              </SidebarNavItem>
-
-              <SidebarNavItem
-                to="/hrms/admin/offboarding/workstation"
-                icon={RefreshCcw}
-              >
-                Workstation Clearance
-              </SidebarNavItem>
-
-              <SidebarNavItem
-                to="/hrms/admin/offboarding/assets"
-                icon={Boxes}
-              >
-                Asset Return Verification
-              </SidebarNavItem>
-
-              <SidebarNavItem
-                to="/hrms/admin/offboarding/final-clearance"
-                icon={ShieldCheck}
-              >
-                Final Admin Clearance
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-          {/* Data Management */}
-          <SidebarGroup label="Data Management">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/data-management/import-export"
-                icon={Boxes}
-              >
-                Import / Export Data
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/data-management/hard-delete"
-                icon={ShieldCheck}
-              >
-                Hard Delete
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          {/* ⚙️ System Configuration */}
-          <SidebarGroup label="System Configuration">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/admin/company-settings" icon={Settings}>
-                Company Settings
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup label="System Configuration" icon={Settings} paths={["/hrms/admin/company-settings"]}>
+            <SidebarNavItem to="/hrms/admin/company-settings" icon={Settings}>
+              Company Settings
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
         </SidebarContent>
 
         {/* ================= FOOTER ================= */}

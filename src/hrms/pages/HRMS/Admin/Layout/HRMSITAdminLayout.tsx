@@ -10,6 +10,7 @@ import {
   SidebarTitle,
   SidebarToggle,
   SidebarGroup,
+  CollapsibleSidebarGroup,
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/collapsible-sidebar";
@@ -210,106 +211,106 @@ function HRMSITAdminLayoutInner({ children }: Props) {
 
         {/* ================= CONTENT ================= */}
         <SidebarContent className="space-y-4">
-          {/* 📊 Dashboard */}
-          <SidebarGroup label="Dashboard">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/it/dashboard" icon={LayoutDashboard}>
-                Overview
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          {/* Dashboard — standalone link, no group/expand */}
+          <SidebarNavItem to="/hrms/it/dashboard" icon={LayoutDashboard}>
+            Dashboard
+          </SidebarNavItem>
 
-          {/* 🔐 System Access & Accounts */}
-          <SidebarGroup label="System Access & Accounts">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/it/onboarding" icon={Laptop}>
-                Employee IT Onboarding
-              </SidebarNavItem>
+          <CollapsibleSidebarGroup
+            label="System Access & Accounts"
+            icon={KeyRound}
+            paths={["/hrms/it/onboarding", "/hrms/it/accounts", "/hrms/it/software"]}
+          >
+            <SidebarNavItem to="/hrms/it/onboarding" icon={Laptop}>
+              Employee IT Onboarding
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/it/accounts" icon={KeyRound}>
+              Email & Account Management
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/it/software" icon={ShieldCheck}>
+              Software & License Assignment
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem to="/hrms/it/accounts" icon={KeyRound}>
-                Email & Account Management
-              </SidebarNavItem>
+          <CollapsibleSidebarGroup
+            label="Asset Management"
+            icon={Boxes}
+            paths={["/hrms/it/assets", "/hrms/it/assets/assign", "/hrms/it/assets/return"]}
+          >
+            <SidebarNavItem to="/hrms/it/assets" icon={Boxes}>
+              Asset Inventory
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/it/assets/assign" icon={RefreshCcw}>
+              Assign / Re-Assign Assets
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/it/assets/return" icon={Power}>
+              Asset Return & Exit Clearance
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem to="/hrms/it/software" icon={ShieldCheck}>
-                Software & License Assignment
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Attendance Device Management"
+            icon={Fingerprint}
+            paths={["/hrms/it/biometric/devices", "/hrms/it/biometric/logs", "/hrms/it/biometric/issues"]}
+          >
+            <SidebarNavItem to="/hrms/it/biometric/devices" icon={Fingerprint}>
+              Biometric Device List
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/it/biometric/logs" icon={RefreshCcw}>
+              Device Sync Logs
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/it/biometric/issues" icon={ShieldCheck}>
+              Device Troubleshooting
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 💻 Asset Management */}
-          <SidebarGroup label="Asset Management">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/it/assets" icon={Boxes}>
-                Asset Inventory
-              </SidebarNavItem>
+          <CollapsibleSidebarGroup
+            label="Offboarding & IT Clearance"
+            icon={Power}
+            paths={["/hrms/it/offboarding/access", "/hrms/it/offboarding/assets", "/hrms/it/offboarding/licenses"]}
+          >
+            <SidebarNavItem to="/hrms/it/offboarding/access" icon={Power}>
+              Access Deactivation
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/it/offboarding/assets" icon={Boxes}>
+              Asset Collection Status
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/it/offboarding/licenses" icon={ShieldCheck}>
+              License Closure
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem to="/hrms/it/assets/assign" icon={RefreshCcw}>
-                Assign / Re-Assign Assets
-              </SidebarNavItem>
-
-              <SidebarNavItem to="/hrms/it/assets/return" icon={Power}>
-                Asset Return & Exit Clearance
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          {/* 🧬 Attendance Device Management */}
-          <SidebarGroup label="Attendance Device Management">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/it/biometric/devices" icon={Fingerprint}>
-                Biometric Device List
-              </SidebarNavItem>
-
-              <SidebarNavItem to="/hrms/it/biometric/logs" icon={RefreshCcw}>
-                Device Sync Logs
-              </SidebarNavItem>
-
-              <SidebarNavItem to="/hrms/it/biometric/issues" icon={ShieldCheck}>
-                Device Troubleshooting
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          {/* 🚪 Offboarding & IT Clearance */}
-          <SidebarGroup label="Offboarding & IT Clearance">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/it/offboarding/access" icon={Power}>
-                Access Deactivation
-              </SidebarNavItem>
-
-              <SidebarNavItem to="/hrms/it/offboarding/assets" icon={Boxes}>
-                Asset Collection Status
-              </SidebarNavItem>
-
-              <SidebarNavItem to="/hrms/it/offboarding/licenses" icon={ShieldCheck}>
-                License Closure
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          {/* 👤 Self Service */}
-          <SidebarGroup label="Self Service">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/self-service/profile" icon={User}>
-                My Profile
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/attendance" icon={Clock}>
-                My Attendance
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/leave" icon={ClipboardList}>
-                My Leave Request
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/payroll" icon={Wallet}>
-                My Payroll
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/documents" icon={FileUp}>
-                My Documents
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/requests" icon={FileText}>
-                My Requests
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Self Service"
+            icon={User}
+            paths={[
+              "/hrms/self-service/profile",
+              "/hrms/self-service/attendance",
+              "/hrms/self-service/leave",
+              "/hrms/self-service/payroll",
+              "/hrms/self-service/documents",
+              "/hrms/self-service/requests",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/self-service/profile" icon={User}>
+              My Profile
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/attendance" icon={Clock}>
+              My Attendance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/leave" icon={ClipboardList}>
+              My Leave Request
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/payroll" icon={Wallet}>
+              My Payroll
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/documents" icon={FileUp}>
+              My Documents
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/requests" icon={FileText}>
+              My Requests
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
         </SidebarContent>
 
         {/* ================= FOOTER ================= */}

@@ -10,6 +10,7 @@ import {
   SidebarTitle,
   SidebarToggle,
   SidebarGroup,
+  CollapsibleSidebarGroup,
   useSidebar,
   SidebarFooter,
 } from "@/components/ui/collapsible-sidebar";
@@ -46,6 +47,9 @@ import {
   Boxes,
   Lock,
   ArrowLeft,
+  GraduationCap,
+  HeartPulse,
+  Umbrella,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -233,6 +237,11 @@ function SuperAdminLayoutInner({ children }: HRMSAdminLayoutProps) {
   const baseUrl = API_URL.replace("/api", "");
   const isCaProxy = !!user?.isCaProxy;
   const accessDenied = isCaProxy && !isPayrollPath(location.pathname);
+  // "hr-admin" is a single-company admin, same sidebar shape as "superadmin" —
+  // distinct from "hrms-admin"/"HRMS-Admin", the platform-wide role that
+  // oversees multiple companies (Companies list, Master List, Roles, Audit Logs).
+  const isSuperAdminLike = user?.role === "superadmin" || user?.role === "hr-admin";
+  const isHrmsAdmin = user?.role === "hrms-admin" || user?.role === "HRMS-Admin";
 
   const handleLogout = () => {
     logout();
@@ -303,243 +312,284 @@ function SuperAdminLayoutInner({ children }: HRMSAdminLayoutProps) {
             </SidebarGroup>
           ) : (
             <>
-          <SidebarGroup label="System Configuration">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/SuperAdmin/dashboard" icon={Building2}>
-                Dashboard
-              </SidebarNavItem>
+          {/* Dashboard — standalone link, no group/expand */}
+          <SidebarNavItem to="/hrms/SuperAdmin/dashboard" icon={Building2}>
+            Dashboard
+          </SidebarNavItem>
 
-              {user?.role === "superadmin" && (
-                <SidebarNavItem to="/hrms/SuperAdmin/company-settings" icon={Settings}>
-                  My Company
-                </SidebarNavItem>
-              )}
+          {/* 1. My Company */}
+          <CollapsibleSidebarGroup
+            label="My Company"
+            icon={Building2}
+            paths={[
+              "/hrms/SuperAdmin/company-settings",
+              "/hrms/SuperAdmin/companies",
+              "/hrms/SuperAdmin/branches",
+              "/hrms/SuperAdmin/departments",
+              "/hrms/SuperAdmin/designations",
+              "/hrms/SuperAdmin/cost-centers",
+              "/hrms/SuperAdmin/working-days",
+            ]}
+          >
+            {isSuperAdminLike && (
+              <SidebarNavItem to="/hrms/SuperAdmin/company-settings" icon={Settings}>
+                Profile
+              </SidebarNavItem>
+            )}
+            {isHrmsAdmin && (
+              <SidebarNavItem to="/hrms/SuperAdmin/companies" icon={Building2}>
+                Companies
+              </SidebarNavItem>
+            )}
+            <SidebarNavItem to="/hrms/SuperAdmin/branches" icon={MapPin}>
+              Branches
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/departments" icon={Users}>
+              Department
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/designations" icon={Briefcase}>
+              Designation
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/cost-centers" icon={Wallet}>
+              Cost Centers
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/working-days" icon={Calendar}>
+              Working Days
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              {(user?.role === "hrms-admin" || user?.role === "HRMS-Admin") && (
-                <SidebarNavItem to="/hrms/SuperAdmin/companies" icon={Building2}>
-                  Companies
-                </SidebarNavItem>
-              )}
+          {/* 2. Recruitment — own top-level main module, sits above Employee Lifecycle */}
+          <CollapsibleSidebarGroup
+            label="Recruitment"
+            icon={Briefcase}
+            paths={["/hrms/SuperAdmin/jobs", "/hrms/SuperAdmin/candidates", "/hrms/SuperAdmin/interviews"]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/jobs" icon={Briefcase}>
+              Job Openings
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/candidates" icon={Users}>
+              Candidates
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/interviews" icon={GitBranch}>
+              Interview Pipeline
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem to="/hrms/SuperAdmin/branches" icon={MapPin}>
-                Branches
-              </SidebarNavItem>
+          {/* 3. Employee Lifecycle */}
+          <CollapsibleSidebarGroup
+            label="Employee Lifecycle"
+            icon={Users}
+            paths={[
+              "/hrms/SuperAdmin/addUser",
+              "/hrms/SuperAdmin/employees",
+              "/hrms/SuperAdmin/letters",
+              "/hrms/SuperAdmin/documents",
+              "/hrms/SuperAdmin/onboarding/checklist",
+              "/hrms/SuperAdmin/onboarding/tasks",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/addUser" icon={Users}>
+              Add Employee
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/employees" icon={Users}>
+              All Employee
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/letters" icon={NotebookPen}>
+              Letters
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/documents" icon={FileText}>
+              Document Verification
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/onboarding/checklist" icon={ListChecks}>
+              Onboarding Checklist
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/onboarding/tasks" icon={ClipboardList}>
+              Onboarding Task
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem to="/hrms/SuperAdmin/departments" icon={Users}>
-                Departments
-              </SidebarNavItem>
+          {/* 4. Training — not built yet, placeholder pages */}
+          <CollapsibleSidebarGroup
+            label="Training"
+            icon={GraduationCap}
+            paths={["/hrms/SuperAdmin/training/overview", "/hrms/SuperAdmin/training/posh"]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/training/overview" icon={ListChecks}>
+              Overview
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/training/posh" icon={ShieldCheck}>
+              POSH
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem to="/hrms/SuperAdmin/designations" icon={Briefcase}>
-                Designations
-              </SidebarNavItem>
+          {/* 4. Attendance Management */}
+          <CollapsibleSidebarGroup
+            label="Attendance Management"
+            icon={CalendarDays}
+            paths={["/hrms/SuperAdmin/shifts", "/hrms/SuperAdmin/attendance/requests", "/hrms/SuperAdmin/attendance"]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/shifts" icon={Clock}>
+              Shifts and Rosters
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/attendance/requests" icon={ClipboardCheck}>
+              Attendance Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/attendance" icon={CalendarDays}>
+              Attendance Records
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem to="/hrms/SuperAdmin/cost-centers" icon={Wallet}>
-                Cost Centers
-              </SidebarNavItem>
+          {/* 5. Leave Management */}
+          <CollapsibleSidebarGroup
+            label="Leave Management"
+            icon={Briefcase}
+            paths={[
+              "/hrms/SuperAdmin/leave-types",
+              "/hrms/SuperAdmin/leaves",
+              "/hrms/SuperAdmin/leave-encashment-requests",
+              "/hrms/SuperAdmin/leave-override",
+              "/hrms/SuperAdmin/holidays",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/leave-types" icon={Settings}>
+              Leave Type and Rules
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/leaves" icon={Briefcase}>
+              Leave Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/leave-encashment-requests" icon={Wallet}>
+              Encashment Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/leave-override" icon={UserCog}>
+              Override Balance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/holidays" icon={Calendar}>
+              Holidays
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              {(user?.role === "hrms-admin" || user?.role === "HRMS-Admin") && (
-                <>
-                  <SidebarNavItem to="/hrms/SuperAdmin/master-list" icon={List}>
-                    Master List
-                  </SidebarNavItem>
-                  <SidebarNavItem to="/hrms/SuperAdmin/roles" icon={Shield}>
-                    Roles
-                  </SidebarNavItem>
-                  <SidebarNavItem to="/hrms/SuperAdmin/audit-logs" icon={ClipboardList}>
-                    Audit Logs
-                  </SidebarNavItem>
-                </>
-              )}
-              <SidebarNavItem to="/hrms/SuperAdmin/working-days" icon={Calendar}>
-                Working Days
-              </SidebarNavItem>
+          {/* 6. Payroll Management */}
+          <CollapsibleSidebarGroup
+            label="Payroll Management"
+            icon={IndianRupee}
+            paths={[
+              "/hrms/SuperAdmin/salary-structure",
+              "/hrms/SuperAdmin/payroll/run",
+              "/hrms/SuperAdmin/payslips",
+              "/hrms/SuperAdmin/statutory-reports",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/salary-structure" icon={IndianRupee}>
+              Salary Structure
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/payroll/run" icon={PlayCircle}>
+              Payroll Run
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/payslips" icon={FileText}>
+              Payslips
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/statutory-reports" icon={FileBarChart}>
+              Statutory Reports
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem to="/hrms/SuperAdmin/policies" icon={ShieldCheck}>
-                Company Policies
-              </SidebarNavItem>
+          {/* 7. Policies */}
+          <CollapsibleSidebarGroup
+            label="Policies"
+            icon={ShieldCheck}
+            paths={["/hrms/SuperAdmin/policies", "/hrms/SuperAdmin/policies/medical", "/hrms/SuperAdmin/policies/insurance", "/hrms/SuperAdmin/policies/posh"]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/policies?tab=attendance" icon={Clock}>
+              Attendance Policy
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/policies?tab=leave" icon={Briefcase}>
+              Leave Policy
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/policies/medical" icon={HeartPulse}>
+              Medical Policy
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/policies/insurance" icon={Umbrella}>
+              Insurance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/policies/posh" icon={AlertCircle}>
+              POSH
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/policies?tab=company" icon={Settings}>
+              Company Policies
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              <SidebarNavItem to="/hrms/SuperAdmin/billing" icon={Receipt}>
-                Billing & Subscription
-              </SidebarNavItem>
+          {/* 8. Separation */}
+          <CollapsibleSidebarGroup
+            label="Separation"
+            icon={LogOut}
+            paths={["/hrms/SuperAdmin/offboarding/resignations", "/hrms/SuperAdmin/offboarding/clearance", "/hrms/SuperAdmin/offboarding/full-final"]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/offboarding/resignations" icon={LogOut}>
+              Resignation
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/offboarding/clearance" icon={Layers}>
+              Clearance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/offboarding/full-final" icon={Receipt}>
+              Full & Final Settlement
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-              {/* <SidebarNavItem
-                to="/hrms/SuperAdmin/payroll-settings"
-                icon={IndianRupee}
-              >
-                Payroll Settings
-              </SidebarNavItem> */}
-            </SidebarNav>
-          </SidebarGroup>
+          {/* 9. Data Management */}
+          <CollapsibleSidebarGroup
+            label="Data Management"
+            icon={Boxes}
+            paths={["/hrms/SuperAdmin/data-management/import-export", "/hrms/SuperAdmin/data-management/hard-delete"]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/data-management/import-export" icon={Boxes}>
+              Import and Export Data
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/data-management/hard-delete" icon={ShieldCheck}>
+              Hard Delete
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          <SidebarGroup label="Data Management">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/SuperAdmin/data-management/import-export" icon={Boxes}>
-                Import / Export Data
+          {/* Leftover items not present in the Excel plan — platform-wide admin
+              tools, only relevant to hrms-admin. Placed above Billing per plan. */}
+          {isHrmsAdmin && (
+            <CollapsibleSidebarGroup
+              label="Administration"
+              icon={Shield}
+              paths={["/hrms/SuperAdmin/master-list", "/hrms/SuperAdmin/roles", "/hrms/SuperAdmin/audit-logs"]}
+            >
+              <SidebarNavItem to="/hrms/SuperAdmin/master-list" icon={List}>
+                Master List
               </SidebarNavItem>
-              <SidebarNavItem to="/hrms/SuperAdmin/data-management/hard-delete" icon={ShieldCheck}>
-                Hard Delete
+              <SidebarNavItem to="/hrms/SuperAdmin/roles" icon={Shield}>
+                Roles
               </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+              <SidebarNavItem to="/hrms/SuperAdmin/audit-logs" icon={ClipboardList}>
+                Audit Logs
+              </SidebarNavItem>
+            </CollapsibleSidebarGroup>
+          )}
 
-          <SidebarGroup label="User and Roles">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/SuperAdmin/addUser" icon={Users}>
-                Add Users
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          {/* Support & Escalations — also not in the Excel plan, placed above Billing */}
+          <CollapsibleSidebarGroup
+            label="Support & Escalations"
+            icon={AlertCircle}
+            paths={["/hrms/SuperAdmin/raise-escalation", "/hrms/SuperAdmin/escalations"]}
+          >
+            <SidebarNavItem to="/hrms/SuperAdmin/raise-escalation" icon={AlertCircle}>
+              Raise Escalation
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/escalations" icon={ClipboardList}>
+              Manage Tickets
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          <SidebarGroup label="Employee Management">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/SuperAdmin/employees" icon={Users}>
-                All Users
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/SuperAdmin/letters" icon={NotebookPen}>
-                Letters
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/SuperAdmin/documents" icon={FileText}>
-                Document Verification
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          <SidebarGroup label="Onboarding">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/onboarding/checklist"
-                icon={ListChecks}
-              >
-                Onboarding Checklist
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/onboarding/tasks"
-                icon={ClipboardList}
-              >
-                Onboarding Tasks
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          <SidebarGroup label="Offboarding">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/offboarding/resignations"
-                icon={LogOut}
-              >
-                Resignations
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/offboarding/clearance"
-                icon={Layers}
-              >
-                Clearance Workflow
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/offboarding/full-final"
-                icon={Receipt}
-              >
-                Full & Final Settlement
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          <SidebarGroup label="Attendance">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/SuperAdmin/attendance" icon={CalendarDays}>
-                Attendance Records
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/SuperAdmin/shifts" icon={Clock}>
-                Shifts & Rosters
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/attendance/requests"
-                icon={ClipboardCheck}
-              >
-                Attendance Requests
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/SuperAdmin/holidays" icon={Calendar}>
-                Holidays
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          <SidebarGroup label="Leave Management">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/SuperAdmin/leaves" icon={Briefcase}>
-                Leave Requests
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/leave-encashment-requests"
-                icon={Wallet}
-              >
-                Encashment Requests
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/leave-override"
-                icon={UserCog}
-              >
-                Override Balance
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/SuperAdmin/leave-types" icon={Settings}>
-                Leave Types & Rules
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          <SidebarGroup label="Payroll">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/salary-structure"
-                icon={IndianRupee}
-              >
-                Salary Structure
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/SuperAdmin/payroll/run" icon={PlayCircle}>
-                Payroll Run
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/SuperAdmin/payslips" icon={FileText}>
-                Payslips
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/statutory-reports"
-                icon={FileBarChart}
-              >
-                Statutory Reports
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          <SidebarGroup label="Recruitment (ATS)">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/SuperAdmin/jobs" icon={Briefcase}>
-                Job Openings
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/SuperAdmin/candidates" icon={Users}>
-                Candidates
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/SuperAdmin/interviews" icon={GitBranch}>
-                Interview Pipeline
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
-
-          <SidebarGroup label="Support & Escalations">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/raise-escalation"
-                icon={AlertCircle}
-              >
-                Raise Escalation
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/SuperAdmin/escalations"
-                icon={ClipboardList}
-              >
-                Manage Tickets
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          {/* 10. Billing and Subscriptions — always last */}
+          <CollapsibleSidebarGroup label="Billing and Subscriptions" icon={Receipt} paths={["/hrms/SuperAdmin/billing"]}>
+            <SidebarNavItem to="/hrms/SuperAdmin/billing" icon={Receipt}>
+              Billing & Subscription
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
             </>
           )}
         </SidebarContent>

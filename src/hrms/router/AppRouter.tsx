@@ -40,6 +40,7 @@ import Branches from "@/pages/HRMS/Admin/SystemConfigration/Branches";
 import DepartmentPage from "@/pages/HRMS/Admin/SystemConfigration/Departments";
 import Designation from "@/pages/HRMS/Admin/SystemConfigration/Desigantion";
 import Policies from "@/pages/HRMS/Admin/SystemConfigration/Policies";
+import ComingSoon from "@/pages/HRMS/Admin/ComingSoon";
 import TeamMembers from "@/pages/HRMS/Manager/Teams/TeamMembers";
 import Goals from "@/pages/HRMS/Manager/Performance/Goals";
 import ProbationConfirmation from "@/pages/HRMS/Admin/ProbationConfirmation";
@@ -375,6 +376,13 @@ export default function AppRouter() {
           <Route path="SuperAdmin/data-management/import-export" element={<ImportExportData />} />
           <Route path="SuperAdmin/data-management/hard-delete" element={<HardDelete />} />
           <Route path="SuperAdmin/billing" element={<BillingDashboard />} />
+          {/* Not built yet — placeholder so the Training/Policies sidebar entries aren't dead links */}
+          <Route path="SuperAdmin/training/overview" element={<ComingSoon title="Training Overview" />} />
+          <Route path="SuperAdmin/training/posh" element={<ComingSoon title="POSH Training" />} />
+          <Route path="SuperAdmin/training/others" element={<ComingSoon title="Other Training" />} />
+          <Route path="SuperAdmin/policies/medical" element={<ComingSoon title="Medical Policy" />} />
+          <Route path="SuperAdmin/policies/insurance" element={<ComingSoon title="Insurance Policy" />} />
+          <Route path="SuperAdmin/policies/posh" element={<ComingSoon title="POSH Policy" />} />
           {/* MANAGER ROUTES */}
           <Route path="manager" element={<Navigate to="dashboard" replace />} />
           <Route path="manager/dashboard" element={<ManagerDashboard />} />

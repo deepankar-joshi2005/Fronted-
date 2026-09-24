@@ -21,3 +21,16 @@ export const upgradeToHrms = (id, payload) => axiosClient.put(`/business-clients
 
 // Same combined client list, staff-accessible — used by Personal Finance Tracker.
 export const listClientDirectory = () => axiosClient.get("/business-clients/mine/client-directory");
+
+// CA firm-admin/staff — basic employee details for one client (Non-HRMS),
+// powers the "View" action on Business Clients / Payroll Management cards.
+export const listClientEmployees = (id) => axiosClient.get(`/business-clients/mine/${id}/employees`);
+
+// Business Client Admin's own dashboard (/client-admin) — employee
+// onboarding link + the employee master it feeds.
+export const getMyEmployeeForm = () => axiosClient.get("/business-clients/me/employee-form");
+export const listMyEmployees = () => axiosClient.get("/business-clients/me/employees");
+export const createMyEmployee = (payload) => axiosClient.post("/business-clients/me/employees", payload);
+export const updateMyEmployee = (employeeId, payload) =>
+  axiosClient.put(`/business-clients/me/employees/${employeeId}`, payload);
+export const getMySalaryStructureForMonth = (month) => axiosClient.get(`/business-clients/me/salary-structure/${month}`);

@@ -1,9 +1,10 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { 
-  PanelLeftClose, 
-  PanelLeftOpen 
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  ChevronDown,
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 
@@ -274,25 +275,37 @@ interface SidebarNavItemProps {
   className?: string
 }
 
-export function SidebarNavItem({ 
-  to, 
-  icon: Icon, 
-  children, 
-  className 
+export function SidebarNavItem({
+  to,
+  icon: Icon,
+  children,
+  className
 }: SidebarNavItemProps) {
   const { isCollapsed } = useSidebar()
   const location = useLocation()
-  
+
   // Only match exact path to prevent parent routes from matching child routes
   // e.g., "/superadmin" should NOT match "/superadmin/messages"
-  const isActive = location.pathname === to
+  //
+  // React Router's own NavLink active-matching (the `linkActive` render-prop
+  // below) only ever compares pathname — it ignores the query string
+  // entirely. That's harmless for a plain "to" with no "?", but a handful of
+  // links here share one route and use "?tab=..." to pick a section on that
+  // page (e.g. Policies' Attendance/Leave/Company Policies, all pointing at
+  // /policies) — NavLink would then mark all of them active at once whenever
+  // any is current. So: for a "to" with a query string, compare pathname+
+  // search ourselves and don't let NavLink's own isActive override it.
+  const hasQuery = to.includes("?")
+  const computedActive = hasQuery
+    ? location.pathname + location.search === to
+    : location.pathname === to
 
   return (
     <NavLink
       to={to}
       end={true}
       className={({ isActive: linkActive }) => {
-        const active = isActive || linkActive
+        const active = hasQuery ? computedActive : (computedActive || linkActive)
         return cn(
           "group relative flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
           active
@@ -304,7 +317,7 @@ export function SidebarNavItem({
       }}
     >
       {({ isActive: linkActive }) => {
-        const active = isActive || linkActive
+        const active = hasQuery ? computedActive : (computedActive || linkActive)
         return (
           <>
             <span
@@ -346,6 +359,74 @@ export function SidebarGroup({
         </h3>
       )}
       {children}
+    </div>
+  )
+}
+
+interface CollapsibleSidebarGroupProps {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  children: React.ReactNode
+  // Every route path this group's children can navigate to — used only to
+  // auto-expand the group when the current page is one of its own children.
+  paths: string[]
+  defaultOpen?: boolean
+}
+
+// Accordion-style group for the SuperAdmin/HR-Admin sidebar: the header is a
+// plain button (never navigates), children only render while expanded. Kept
+// separate from SidebarGroup (which every other role's sidebar still uses as
+// an always-expanded, non-collapsible section) so those are unaffected.
+export function CollapsibleSidebarGroup({
+  label,
+  icon: Icon,
+  children,
+  paths,
+  defaultOpen = false,
+}: CollapsibleSidebarGroupProps) {
+  const { isCollapsed } = useSidebar()
+  const location = useLocation()
+  const hasActiveChild = paths.some((p) => location.pathname === p)
+  const [isOpen, setIsOpen] = React.useState(defaultOpen || hasActiveChild)
+
+  // If the user navigates (e.g. via search) straight to a child route, open
+  // this group so the active item is visible instead of hidden away.
+  React.useEffect(() => {
+    if (hasActiveChild) setIsOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname])
+
+  if (isCollapsed) {
+    // Icon-rail mode has no room for an accordion — fall back to a flat,
+    // always-visible list like SidebarGroup does.
+    return <div className="space-y-1">{children}</div>
+  }
+
+  return (
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        aria-expanded={isOpen}
+        className={cn(
+          "group flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+          hasActiveChild
+            ? "text-[var(--sidebar-foreground)]"
+            : "text-[var(--sidebar-text-muted)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-foreground)]"
+        )}
+      >
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md mr-3">
+          <Icon className="h-4 w-4 shrink-0" />
+        </span>
+        <span className="flex-1 truncate text-left">{label}</span>
+        <ChevronDown
+          className={cn("h-4 w-4 shrink-0 transition-transform duration-200", isOpen && "rotate-180")}
+        />
+      </button>
+      {/* overflow-hidden: the extra pl-3 indent stacked on a child SidebarNavItem's
+          own px-3 can push a long label a few px past the sidebar's width — clip it
+          here instead of letting it bubble up and trigger SidebarContent's horizontal scrollbar. */}
+      {isOpen && <div className="space-y-1 pl-3 overflow-hidden">{children}</div>}
     </div>
   )
 }

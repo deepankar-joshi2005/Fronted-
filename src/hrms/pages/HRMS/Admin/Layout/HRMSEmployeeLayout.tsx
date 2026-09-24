@@ -10,6 +10,7 @@ import {
   SidebarTitle,
   SidebarToggle,
   SidebarGroup,
+  CollapsibleSidebarGroup,
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/collapsible-sidebar";
@@ -206,178 +207,128 @@ function HRMSEmployeeLayoutInner({ children }: Props) {
         </SidebarHeader>
 
         <SidebarContent className="space-y-4">
-          <SidebarGroup label="Dashboard">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/employee/dashboard"
-                icon={LayoutDashboard}
-              >
-                Overview
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          {/* Dashboard — standalone link, no group/expand */}
+          <SidebarNavItem to="/hrms/employee/dashboard" icon={LayoutDashboard}>
+            Dashboard
+          </SidebarNavItem>
 
-          {/* 👤 My Profile */}
-          <SidebarGroup label="My Profile">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/employee/profile/personal" icon={User}>
-                Personal Information
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/profile/documents"
-                icon={FileUp}
-              >
-                Document Upload
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/profile/organization"
-                icon={Building2}
-              >
-                Organizational Info
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="My Profile"
+            icon={User}
+            paths={["/hrms/employee/profile/personal", "/hrms/employee/profile/documents", "/hrms/employee/profile/organization"]}
+          >
+            <SidebarNavItem to="/hrms/employee/profile/personal" icon={User}>
+              Personal Information
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/profile/documents" icon={FileUp}>
+              Document Upload
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/profile/organization" icon={Building2}>
+              Organizational Info
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* ⏰ Attendance */}
-          <SidebarGroup label="Attendance">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/employee/attendance/mark" icon={Clock}>
-                Mark Attendance
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/attendance/calendar"
-                icon={CalendarDays}
-              >
-                Attendance Calendar
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/attendance/requests"
-                icon={ClipboardList}
-              >
-                Attendance Requests
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/attendance/shift-schedule"
-                icon={CalendarDays}
-              >
-                Shift and Schedule
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Attendance"
+            icon={Clock}
+            paths={[
+              "/hrms/employee/attendance/mark",
+              "/hrms/employee/attendance/calendar",
+              "/hrms/employee/attendance/requests",
+              "/hrms/employee/attendance/shift-schedule",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/employee/attendance/mark" icon={Clock}>
+              Mark Attendance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/attendance/calendar" icon={CalendarDays}>
+              Attendance Calendar
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/attendance/requests" icon={ClipboardList}>
+              Attendance Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/attendance/shift-schedule" icon={CalendarDays}>
+              Shift and Schedule
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 🌴 Leave */}
-          <SidebarGroup label="Leave">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/employee/leave/balance" icon={Wallet}>
-                Leave Balance
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/leave/apply"
-                icon={ClipboardList}
-              >
-                Apply Leave
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup label="Leave" icon={ClipboardList} paths={["/hrms/employee/leave/balance", "/hrms/employee/leave/apply"]}>
+            <SidebarNavItem to="/hrms/employee/leave/balance" icon={Wallet}>
+              Leave Balance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/leave/apply" icon={ClipboardList}>
+              Apply Leave
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 💰 Payroll */}
-          <SidebarGroup label="Payroll">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/employee/payroll/payslips"
-                icon={FileText}
-              >
-                Payslips
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/payroll/salary-structure"
-                icon={Wallet}
-              >
-                Salary Structure
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Payroll"
+            icon={Wallet}
+            paths={["/hrms/employee/payroll/payslips", "/hrms/employee/payroll/salary-structure"]}
+          >
+            <SidebarNavItem to="/hrms/employee/payroll/payslips" icon={FileText}>
+              Payslips
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/payroll/salary-structure" icon={Wallet}>
+              Salary Structure
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 🧾 Expenses */}
-          <SidebarGroup label="Expenses">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/employee/expenses/submit"
-                icon={Receipt}
-              >
-                Submit Expense
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup label="Expenses" icon={Receipt} paths={["/hrms/employee/expenses/submit"]}>
+            <SidebarNavItem to="/hrms/employee/expenses/submit" icon={Receipt}>
+              Submit Expense
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* ✈️ Travel */}
-          <SidebarGroup label="Requests">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/employee/request/my-requests"
-                icon={ClipboardList}
-              >
-                My Travel Requests
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/request/resign"
-                icon={LogOut}
-              >
-                My Resign Requests
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/request/overtime"
-                icon={Clock}
-              >
-                Overtime Requests
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/request/profileUpdate"
-                icon={UserCog}
-              >
-                Profile Update Requests
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/request/leave-encashment"
-                icon={Wallet}
-              >
-                Leave Encashment
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Requests"
+            icon={ClipboardList}
+            paths={[
+              "/hrms/employee/request/my-requests",
+              "/hrms/employee/request/resign",
+              "/hrms/employee/request/overtime",
+              "/hrms/employee/request/profileUpdate",
+              "/hrms/employee/request/leave-encashment",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/employee/request/my-requests" icon={ClipboardList}>
+              My Travel Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/request/resign" icon={LogOut}>
+              My Resign Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/request/overtime" icon={Clock}>
+              Overtime Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/request/profileUpdate" icon={UserCog}>
+              Profile Update Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/request/leave-encashment" icon={Wallet}>
+              Leave Encashment
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 🎯 Performance */}
-          <SidebarGroup label="Performance">
-            <SidebarNav>
-              <SidebarNavItem
-                to="/hrms/employee/performance/goals"
-                icon={Target}
-              >
-                My Goals
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/performance/self-appraisal"
-                icon={ClipboardList}
-              >
-                Self Appraisal
-              </SidebarNavItem>
-              <SidebarNavItem
-                to="/hrms/employee/performance/history"
-                icon={FileText}
-              >
-                Performance History
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Performance"
+            icon={Target}
+            paths={["/hrms/employee/performance/goals", "/hrms/employee/performance/self-appraisal", "/hrms/employee/performance/history"]}
+          >
+            <SidebarNavItem to="/hrms/employee/performance/goals" icon={Target}>
+              My Goals
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/performance/self-appraisal" icon={ClipboardList}>
+              Self Appraisal
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/employee/performance/history" icon={FileText}>
+              Performance History
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 📄 Letters & Documents */}
-          <SidebarGroup label="Letters & Documents">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/employee/letters" icon={FileText}>
-                Download Letter
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup label="Letters & Documents" icon={FileText} paths={["/hrms/employee/letters"]}>
+            <SidebarNavItem to="/hrms/employee/letters" icon={FileText}>
+              Download Letter
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
         </SidebarContent>
 
         <SidebarFooter>

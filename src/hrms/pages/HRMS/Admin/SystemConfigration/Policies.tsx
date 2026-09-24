@@ -21,6 +21,7 @@ import {
   Hourglass,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "../../Alert/Toast";
 import { cn } from "@/lib/utils";
@@ -90,8 +91,21 @@ const getLeaveVisual = (name: string) => {
   };
 };
 
+const VALID_TABS: Tab[] = ["leave", "attendance", "company"];
+
 export default function Policies() {
-  const [activeTab, setActiveTab] = useState<Tab>("leave");
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get("tab") as Tab | null;
+  const [activeTab, setActiveTab] = useState<Tab>(
+    tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : "leave"
+  );
+
+  // Sidebar links to this page carry ?tab=... — since navigating between them
+  // doesn't unmount the page (same route), re-sync on every query change too.
+  useEffect(() => {
+    if (tabFromUrl && VALID_TABS.includes(tabFromUrl)) setActiveTab(tabFromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabFromUrl]);
   const [leaves, setLeaves] = useState<any[]>([]);
   const [hrPolicies, setHrPolicies] = useState<HrPolicy[]>([]);
   const [uploadingId, setUploadingId] = useState<string | null>(null);

@@ -19,6 +19,7 @@ export default function RoleBasedLayout() {
     case "superadmin":
     case "HRMS-Admin":
     case "hrms-admin":
+    case "hr-admin":
       return (
         <SuperAdminLayout>
           <Outlet />

@@ -14,6 +14,10 @@ import {
   CheckCircle2,
   Circle,
   Eye,
+  Table2,
+  Plus,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
 import * as businessClientApi from "../../../api/businessClient.api.js";
 import * as payrollApi from "../../../api/clientPayroll.api";
@@ -21,12 +25,15 @@ import { useAuth } from "../../../hooks/useAuth";
 import ClientIdentityCard from "../../../components/payroll/ClientIdentityCard.jsx";
 import Button from "../../../components/ui/Button.jsx";
 import Input from "../../../components/ui/Input.jsx";
+import Select from "../../../components/ui/Select.jsx";
 import Card from "../../../components/ui/Card.jsx";
 import Table from "../../../components/ui/Table.jsx";
 import Badge from "../../../components/ui/Badge.jsx";
 import Modal from "../../../components/ui/Modal.jsx";
 import Spinner from "../../../components/ui/Spinner.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
+import SegmentedTabs from "../../../components/ui/SegmentedTabs.jsx";
+import Switch from "../../../components/ui/Switch.jsx";
 
 function currentMonth() {
   const d = new Date();
@@ -36,6 +43,18 @@ function currentMonth() {
 function monthLabel(month: string) {
   const [y, m] = month.split("-").map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+// Firm-wide column display order (ClientPayrollFirmSettings.columnOrder) —
+// columns already known to the saved order are sorted by their position
+// there; anything not yet ordered (e.g. a component only this client has)
+// keeps its existing relative position, appended after the known ones.
+function applyColumnOrder(columns: any[], savedOrder?: string[]) {
+  if (!savedOrder || savedOrder.length === 0) return columns;
+  const known = columns.filter((c) => savedOrder.includes(c.key));
+  const unknown = columns.filter((c) => !savedOrder.includes(c.key));
+  known.sort((a, b) => savedOrder.indexOf(a.key) - savedOrder.indexOf(b.key));
+  return [...known, ...unknown];
 }
 
 function downloadBlob(data: BlobPart, filename: string) {
@@ -84,7 +103,7 @@ function ComponentsModal({ open, onClose, settings, onSaved, businessClientId }:
       setError("At least one earning component is required");
       return;
     }
-    if (!earningComponents.includes("Basic Salary")) earningComponents.unshift("Basic Salary");
+    if (!earningComponents.includes("Basic")) earningComponents.unshift("Basic");
     setSaving(true);
     setError("");
     try {
@@ -107,7 +126,7 @@ function ComponentsModal({ open, onClose, settings, onSaved, businessClientId }:
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} loading={saving}>
+          <Button variant="brand" onClick={handleSave} loading={saving}>
             Save
           </Button>
         </>
@@ -116,10 +135,11 @@ function ComponentsModal({ open, onClose, settings, onSaved, businessClientId }:
       <div className="flex flex-col gap-4">
         {error && <div className="rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger">{error}</div>}
         <p className="text-sm text-text-muted">
-          These are the columns that appear on the salary structure below. "Basic Salary" always stays first — its value comes
-          straight from the Excel import, everything else is a % of it. Comma-separated.
+          These are the columns that appear on the salary structure below. "Basic" is a % of CTC (or a flat fixed
+          amount); every other component here is a % of Basic — set percentages via Structure Setting.
+          Comma-separated.
         </p>
-        <Input label="Earning components" value={earnings} onChange={(e: any) => setEarnings(e.target.value)} placeholder="Basic Salary, HRA, DA" />
+        <Input label="Earning components" value={earnings} onChange={(e: any) => setEarnings(e.target.value)} placeholder="Basic, HRA, DA" />
         <Input
           label="Deduction components"
           value={deductions}
@@ -131,52 +151,302 @@ function ComponentsModal({ open, onClose, settings, onSaved, businessClientId }:
   );
 }
 
-// ── Structure Settings: % of Basic Salary per component + Employee ID format ─
+// ── Template Settings: which columns appear on the downloadable/uploadable
+// monthly Excel, in what order — separate from "Salary components" above,
+// which only drives the % calculator. ───────────────────────────────────────
 
-function StructureSettingsModal({ open, onClose, settings, firmSettings, businessClientId, month, onSaved }: any) {
-  const [percentages, setPercentages] = useState<Record<string, string>>({});
-  const [prefix, setPrefix] = useState("EMP-");
-  const [padding, setPadding] = useState("4");
+const ROLE_BADGES: Record<string, string> = {
+  employeeName: "Employee identifier",
+  ctc: "CTC",
+  payDays: "Pay Days",
+  totalWorkingDays: "Total Working Days",
+};
+const ROLE_DELETE_WARNING: Record<string, string> = {
+  ctc: "No component — including Basic — will be calculated until you add a CTC column back.",
+  payDays: "Payroll will no longer be prorated for this client — everyone gets full pay every month.",
+  totalWorkingDays: "Payroll will no longer be prorated for this client — everyone gets full pay every month.",
+};
+
+function TemplateColumnsModal({ open, onClose, settings, businessClientId, onSaved }: any) {
+  const [columns, setColumns] = useState<any[]>([]);
+  const [newLabel, setNewLabel] = useState("");
+  const [newType, setNewType] = useState("text");
+  const [newPosition, setNewPosition] = useState("");
+  const [pendingDeleteIdx, setPendingDeleteIdx] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const requiredComponents = [
-    ...(settings?.earningComponents || []).filter((c: string) => c !== "Basic Salary"),
-    ...(settings?.deductionComponents || []),
-  ];
+  useEffect(() => {
+    if (!open) return;
+    const sorted = [...(settings?.templateColumns || [])].sort((a: any, b: any) => a.order - b.order);
+    setColumns(sorted.map((c: any) => ({ ...c })));
+    setNewLabel("");
+    setNewType("text");
+    setNewPosition("");
+    setPendingDeleteIdx(null);
+    setError("");
+  }, [open, settings]);
+
+  function updateLabel(idx: number, label: string) {
+    setColumns((cols) => cols.map((c, i) => (i === idx ? { ...c, label } : c)));
+  }
+
+  function updateType(idx: number, dataType: string) {
+    setColumns((cols) => cols.map((c, i) => (i === idx ? { ...c, dataType } : c)));
+  }
+
+  function setPosition(idx: number, posRaw: string) {
+    const pos = Math.max(1, Math.min(columns.length, Number(posRaw) || 1));
+    setColumns((cols) => {
+      const next = [...cols];
+      const [item] = next.splice(idx, 1);
+      next.splice(pos - 1, 0, item);
+      return next;
+    });
+  }
+
+  function requestDelete(idx: number) {
+    const col = columns[idx];
+    if (col.role === "employeeName") return;
+    if (ROLE_DELETE_WARNING[col.role]) {
+      setPendingDeleteIdx(idx);
+    } else {
+      setColumns((cols) => cols.filter((_, i) => i !== idx));
+    }
+  }
+
+  function confirmDelete() {
+    setColumns((cols) => cols.filter((_, i) => i !== pendingDeleteIdx));
+    setPendingDeleteIdx(null);
+  }
+
+  function addColumn() {
+    if (!newLabel.trim()) return;
+    const maxPos = columns.length + 1;
+    // Blank position = append at the end (matches the placeholder shown in
+    // the input); otherwise insert at that column number, pushing everything
+    // from there onward down by one — same splice-based reorder as
+    // setPosition uses for existing columns.
+    const pos = newPosition ? Math.max(1, Math.min(maxPos, Number(newPosition) || maxPos)) : maxPos;
+    setColumns((cols) => {
+      const next = [...cols];
+      next.splice(pos - 1, 0, { label: newLabel.trim(), role: "custom", dataType: newType, order: pos });
+      return next;
+    });
+    setNewLabel("");
+    setNewType("text");
+    setNewPosition("");
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError("");
+    try {
+      const { data } = await payrollApi.updateTemplateColumns(businessClientId, columns);
+      onSaved(data.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Could not save template columns");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Template Settings"
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="brand" onClick={handleSave} loading={saving}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {error && <div className="rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger">{error}</div>}
+        <p className="text-sm text-text-muted">
+          These are the columns on the downloadable/uploadable Excel each month, in this order. Employee Name always stays (it's
+          how rows are matched to employees); everything else can be renamed, reordered, or deleted — including CTC, Pay Days and
+          Total Working Days, though deleting those changes how payroll is calculated for this client.
+        </p>
+
+        {pendingDeleteIdx !== null && (
+          <div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning-bg px-3.5 py-2.5 text-sm text-warning">
+            <span>{ROLE_DELETE_WARNING[columns[pendingDeleteIdx]?.role]}</span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="danger" onClick={confirmDelete}>
+                Delete anyway
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setPendingDeleteIdx(null)}>
+                Keep it
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          {columns.map((col, idx) => (
+            <div key={col.key || `new-${idx}`} className="flex items-center gap-2 rounded-lg border border-border p-2.5">
+              <Input
+                type="number"
+                min={1}
+                max={columns.length}
+                value={idx + 1}
+                onChange={(e: any) => setPosition(idx, e.target.value)}
+                className="w-14 shrink-0 text-center"
+              />
+              <Input value={col.label} onChange={(e: any) => updateLabel(idx, e.target.value)} className="flex-1" />
+              {col.role === "custom" ? (
+                <Select value={col.dataType} onChange={(e: any) => updateType(idx, e.target.value)} className="w-28 shrink-0">
+                  <option value="text">Text</option>
+                  <option value="number">Number</option>
+                  <option value="date">Date</option>
+                </Select>
+              ) : (
+                <Badge variant="brand" className="shrink-0">
+                  {ROLE_BADGES[col.role]}
+                </Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => requestDelete(idx)}
+                disabled={col.role === "employeeName"}
+                title={col.role === "employeeName" ? "Required to match rows to employees" : "Delete column"}
+              >
+                <Trash2 size={14} className={col.role === "employeeName" ? "text-text-muted" : "text-danger"} />
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 border-t border-border pt-4">
+          <Input
+            type="number"
+            min={1}
+            max={columns.length + 1}
+            placeholder={String(columns.length + 1)}
+            title="Column number to insert at — anything already there shifts down"
+            value={newPosition}
+            onChange={(e: any) => setNewPosition(e.target.value)}
+            className="w-16 shrink-0 text-center"
+          />
+          <Input
+            placeholder="New column label, e.g. Department"
+            value={newLabel}
+            onChange={(e: any) => setNewLabel(e.target.value)}
+            className="flex-1"
+          />
+          <Select value={newType} onChange={(e: any) => setNewType(e.target.value)} className="w-28 shrink-0">
+            <option value="text">Text</option>
+            <option value="number">Number</option>
+            <option value="date">Date</option>
+          </Select>
+          <Button variant="secondary" size="sm" onClick={addColumn} disabled={!newLabel.trim()}>
+            <Plus size={14} /> Add
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Structure Settings: Basic is % of CTC (or a flat Fixed amount) — it's
+// the one component whose % is of CTC, not of Basic, since it can't be a %
+// of itself. Everything else is either % of Basic or a flat Fixed amount
+// (same for every employee), per-component. NPS stays percent-only — flat
+// "fixed" wouldn't be statutorily meaningful for it. Employee PF and Employee
+// ESI aren't configured here at all — they're fixed statutory formulas — see
+// NON_CONFIGURABLE_COMPONENTS / applyPercentagesToStructure. ───────────────
+
+const PERCENT_ONLY_COMPONENTS = ["NPS"];
+const NON_CONFIGURABLE_COMPONENTS = ["Employee PF", "Employee ESI"];
+const MODE_OPTIONS = [
+  { value: "percent", label: "%" },
+  { value: "fixed", label: "₹ Fixed" },
+];
+
+function StructureSettingsModal({ open, onClose, settings, firmSettings, businessClientId, month, onSaved }: any) {
+  const [percentages, setPercentages] = useState<Record<string, string>>({});
+  const [fixedAmounts, setFixedAmounts] = useState<Record<string, string>>({});
+  const [modes, setModes] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // Employee PF/Employee ESI are fixed statutory formulas — never configured
+  // here. Basic IS configured here (first in the list, its % is of CTC).
+  const requiredComponents = [...(settings?.earningComponents || []), ...(settings?.deductionComponents || [])].filter(
+    (c: string) => !NON_CONFIGURABLE_COMPONENTS.includes(c)
+  );
+  const modeFor = (c: string) => (PERCENT_ONLY_COMPONENTS.includes(c) ? "percent" : modes[c] || "percent");
 
   useEffect(() => {
     if (!open) return;
-    const current = settings?.componentPercentages || {};
-    const defaults = firmSettings?.defaultComponentPercentages || {};
-    const next: Record<string, string> = {};
+    const currentPct = settings?.componentPercentages || {};
+    const currentFixed = settings?.componentFixedAmounts || {};
+    const currentModes = settings?.componentModes || {};
+    const defaultPct = firmSettings?.defaultComponentPercentages || {};
+    const defaultFixed = firmSettings?.defaultComponentFixedAmounts || {};
+    const defaultModes = firmSettings?.defaultComponentModes || {};
+
+    const nextPct: Record<string, string> = {};
+    const nextFixed: Record<string, string> = {};
+    const nextModes: Record<string, string> = {};
     requiredComponents.forEach((c: string) => {
-      if (current[c] !== undefined && current[c] !== null) next[c] = String(current[c]);
-      else if (defaults[c] !== undefined && defaults[c] !== null) next[c] = String(defaults[c]);
-      else next[c] = "";
+      nextModes[c] = PERCENT_ONLY_COMPONENTS.includes(c) ? "percent" : currentModes[c] || defaultModes[c] || "percent";
+      nextPct[c] =
+        currentPct[c] !== undefined && currentPct[c] !== null
+          ? String(currentPct[c])
+          : defaultPct[c] !== undefined && defaultPct[c] !== null
+            ? String(defaultPct[c])
+            : "";
+      nextFixed[c] =
+        currentFixed[c] !== undefined && currentFixed[c] !== null
+          ? String(currentFixed[c])
+          : defaultFixed[c] !== undefined && defaultFixed[c] !== null
+            ? String(defaultFixed[c])
+            : "";
     });
-    setPercentages(next);
-    setPrefix(firmSettings?.employeeIdPrefix || "EMP-");
-    setPadding(String(firmSettings?.employeeIdPadding || 4));
+    setPercentages(nextPct);
+    setFixedAmounts(nextFixed);
+    setModes(nextModes);
     setError("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, settings, firmSettings]);
 
   async function handleSave() {
-    const missing = requiredComponents.filter((c: string) => percentages[c] === undefined || percentages[c] === "");
+    const missing = requiredComponents.filter((c: string) => {
+      const val = modeFor(c) === "fixed" ? fixedAmounts[c] : percentages[c];
+      return val === undefined || val === "";
+    });
     if (missing.length > 0) {
-      setError(`Set a percentage for: ${missing.join(", ")}`);
+      setError(`Set a value for: ${missing.join(", ")}`);
       return;
     }
     setSaving(true);
     setError("");
     try {
       const percentagesPayload: Record<string, number> = {};
-      requiredComponents.forEach((c: string) => (percentagesPayload[c] = Number(percentages[c]) || 0));
-      await Promise.all([
-        payrollApi.updateComponentPercentages(businessClientId, { percentages: percentagesPayload, month }),
-        payrollApi.updateFirmPayrollSettings({ employeeIdPrefix: prefix || "EMP-", employeeIdPadding: Number(padding) || 4 }),
-      ]);
+      const fixedAmountsPayload: Record<string, number> = {};
+      const modesPayload: Record<string, string> = {};
+      requiredComponents.forEach((c: string) => {
+        const mode = modeFor(c);
+        modesPayload[c] = mode;
+        if (mode === "fixed") fixedAmountsPayload[c] = Number(fixedAmounts[c]) || 0;
+        else percentagesPayload[c] = Number(percentages[c]) || 0;
+      });
+      await payrollApi.updateComponentPercentages(businessClientId, {
+        percentages: percentagesPayload,
+        fixedAmounts: fixedAmountsPayload,
+        modes: modesPayload,
+        month,
+      });
       onSaved();
     } catch (err: any) {
       setError(err.response?.data?.message || "Could not save Structure Settings");
@@ -196,7 +466,7 @@ function StructureSettingsModal({ open, onClose, settings, firmSettings, busines
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} loading={saving}>
+          <Button variant="brand" onClick={handleSave} loading={saving}>
             Save
           </Button>
         </>
@@ -205,48 +475,55 @@ function StructureSettingsModal({ open, onClose, settings, firmSettings, busines
       <div className="flex flex-col gap-5">
         {error && <div className="rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger">{error}</div>}
         <p className="text-sm text-text-muted">
-          Each component below is calculated as a % of <strong className="text-text">Basic Salary</strong> — e.g. Basic ₹100 with
-          HRA at 10% gives ₹10 HRA. All fields are required to save, but you can always come back and edit or clear them.
+          <strong className="text-text">Basic</strong> is the only component whose{" "}
+          <strong className="text-text">%</strong> is of CTC (it can't be a % of itself) — everything else is a %{" "}
+          of Basic, or <strong className="text-text">₹ Fixed</strong> for the same flat amount every employee, e.g.
+          set Arrears to a fixed ₹1,000 and every employee's Arrears is ₹1,000 that month.{" "}
+          <strong className="text-text">Employee PF</strong>/<strong className="text-text">Employee ESI</strong> aren't
+          set here at all — calculated automatically via statutory wage rules. NPS always stays % (statutory).
         </p>
 
         {requiredComponents.length === 0 ? (
           <p className="text-sm text-text-muted">No components configured yet — add some via "Salary components" first.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {requiredComponents.map((c: string) => (
-              <Input
-                key={c}
-                label={c}
-                type="number"
-                min={0}
-                max={100}
-                value={percentages[c] ?? ""}
-                onChange={(e: any) => setPercentages((p) => ({ ...p, [c]: e.target.value }))}
-                placeholder="%"
-              />
-            ))}
+          <div className="flex flex-col gap-2">
+            {requiredComponents.map((c: string) => {
+              const locked = PERCENT_ONLY_COMPONENTS.includes(c);
+              const mode = modeFor(c);
+              const pctOfLabel = c === "Basic" ? "% of CTC" : "%";
+              return (
+                <div key={c} className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2">
+                  <span className="w-full shrink-0 text-sm font-medium text-text sm:w-40" title={c}>
+                    {c}
+                  </span>
+                  {!locked && (
+                    <SegmentedTabs options={MODE_OPTIONS} value={mode} onChange={(v) => setModes((m) => ({ ...m, [c]: v }))} />
+                  )}
+                  {mode === "fixed" ? (
+                    <Input
+                      type="number"
+                      min={0}
+                      value={fixedAmounts[c] ?? ""}
+                      onChange={(e: any) => setFixedAmounts((v) => ({ ...v, [c]: e.target.value }))}
+                      placeholder="₹ amount"
+                      className="min-w-32 flex-1"
+                    />
+                  ) : (
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={percentages[c] ?? ""}
+                      onChange={(e: any) => setPercentages((v) => ({ ...v, [c]: e.target.value }))}
+                      placeholder={pctOfLabel}
+                      className="min-w-32 flex-1"
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
-
-        <div className="rounded-xl border border-border bg-surface-2 p-4">
-          <p className="mb-1 text-sm font-semibold text-heading">Employee ID format</p>
-          <p className="mb-3 text-xs text-text-muted">Applies to every client in your firm — not just this one.</p>
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Prefix" value={prefix} onChange={(e: any) => setPrefix(e.target.value)} placeholder="EMP-" />
-            <Input
-              label="Number of digits"
-              type="number"
-              min={1}
-              max={8}
-              value={padding}
-              onChange={(e: any) => setPadding(e.target.value)}
-            />
-          </div>
-          <p className="mt-2 text-xs text-text-muted">
-            Example: {prefix || "EMP-"}
-            {String(1).padStart(Number(padding) || 4, "0")}
-          </p>
-        </div>
       </div>
     </Modal>
   );
@@ -255,50 +532,105 @@ function StructureSettingsModal({ open, onClose, settings, firmSettings, busines
 // ── Manual edit of one employee's structure for the selected month ─────────
 
 function EmployeeStructureModal({ open, onClose, row, settings, businessClientId, month, onSaved }: any) {
-  const [basicSalary, setBasicSalary] = useState("");
+  const [ctc, setCtc] = useState("");
   const [payDays, setPayDays] = useState("");
   const [totalWorkingDays, setTotalWorkingDays] = useState("");
   const [costCenter, setCostCenter] = useState("");
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  // Per-component override state — "Custom for this employee" toggle, plus
+  // the mode/%/fixed to use only while that toggle is on. When off, the
+  // component just follows the client-wide Structure Setting (shown read-only).
+  const [overrideOn, setOverrideOn] = useState<Record<string, boolean>>({});
+  const [modes, setModes] = useState<Record<string, string>>({});
+  const [percentages, setPercentages] = useState<Record<string, string>>({});
+  const [fixedAmounts, setFixedAmounts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const templateColumns = settings?.templateColumns || [];
+  const hasRole = (role: string) => templateColumns.some((c: any) => c.role === role);
+  const ctcCol = templateColumns.find((c: any) => c.role === "ctc");
+  const payDaysCol = templateColumns.find((c: any) => c.role === "payDays");
+  const totalWorkingDaysCol = templateColumns.find((c: any) => c.role === "totalWorkingDays");
+  const customColumns = templateColumns.filter((c: any) => c.role === "custom").sort((a: any, b: any) => a.order - b.order);
+  const earningComponents = (settings?.earningComponents || []).filter((c: string) => !NON_CONFIGURABLE_COMPONENTS.includes(c));
+  const deductionComponents = (settings?.deductionComponents || []).filter((c: string) => !NON_CONFIGURABLE_COMPONENTS.includes(c));
+  const isLocked = (c: string) => PERCENT_ONLY_COMPONENTS.includes(c);
+  const clientDefaultMode = (c: string) => (isLocked(c) ? "percent" : settings?.componentModes?.[c] || "percent");
+
+  function clientDefaultLabel(c: string) {
+    const mode = clientDefaultMode(c);
+    if (mode === "fixed") {
+      const amt = settings?.componentFixedAmounts?.[c];
+      return amt !== undefined && amt !== null ? `Client default: ₹${amt} fixed` : "Client default: not set";
+    }
+    const pct = settings?.componentPercentages?.[c];
+    const ofLabel = c === "Basic" ? "of CTC" : "of Basic";
+    return pct !== undefined && pct !== null ? `Client default: ${pct}% ${ofLabel}` : "Client default: not set";
+  }
+
   useEffect(() => {
     if (!open || !row) return;
-    const earnings = row.earnings || {};
-    const deductions = row.deductions || {};
-    setBasicSalary(String(earnings["Basic Salary"] ?? ""));
+    setCtc(String(row.ctc ?? ""));
     setPayDays(String(row.payDays ?? ""));
     setTotalWorkingDays(String(row.totalWorkingDays ?? ""));
     setCostCenter(row.costCenter || "");
-    const next: Record<string, string> = {};
-    (settings?.earningComponents || []).forEach((c: string) => {
-      if (c === "Basic Salary") return;
-      next[`e:${c}`] = earnings[c] ?? "";
+    const nextCustom: Record<string, string> = {};
+    customColumns.forEach((c: any) => (nextCustom[c.key] = row.customFields?.[c.key] || ""));
+    setCustomValues(nextCustom);
+
+    const modeOverrides = row.componentModeOverrides || {};
+    const pctOverrides = row.componentPercentageOverrides || {};
+    const fixedOverrides = row.componentFixedAmountOverrides || {};
+    const nextOverrideOn: Record<string, boolean> = {};
+    const nextModes: Record<string, string> = {};
+    const nextPct: Record<string, string> = {};
+    const nextFixed: Record<string, string> = {};
+    [...earningComponents, ...deductionComponents].forEach((c: string) => {
+      const hasOverride = modeOverrides[c] !== undefined || pctOverrides[c] !== undefined || fixedOverrides[c] !== undefined;
+      nextOverrideOn[c] = hasOverride;
+      nextModes[c] = hasOverride && (modeOverrides[c] === "fixed" || modeOverrides[c] === "percent") ? modeOverrides[c] : clientDefaultMode(c);
+      nextPct[c] = String(
+        pctOverrides[c] !== undefined && pctOverrides[c] !== null ? pctOverrides[c] : settings?.componentPercentages?.[c] ?? ""
+      );
+      nextFixed[c] = String(
+        fixedOverrides[c] !== undefined && fixedOverrides[c] !== null ? fixedOverrides[c] : settings?.componentFixedAmounts?.[c] ?? ""
+      );
     });
-    (settings?.deductionComponents || []).forEach((c: string) => (next[`d:${c}`] = deductions[c] ?? ""));
-    setValues(next);
+    setOverrideOn(nextOverrideOn);
+    setModes(nextModes);
+    setPercentages(nextPct);
+    setFixedAmounts(nextFixed);
     setError("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, row, settings]);
 
   async function handleSave() {
-    const earnings: Record<string, number> = { "Basic Salary": Number(basicSalary) || 0 };
-    for (const c of settings?.earningComponents || []) {
-      if (c === "Basic Salary") continue;
-      earnings[c] = Number(values[`e:${c}`]) || 0;
-    }
-    const deductions: Record<string, number> = {};
-    for (const c of settings?.deductionComponents || []) deductions[c] = Number(values[`d:${c}`]) || 0;
-
     setSaving(true);
     setError("");
     try {
       await payrollApi.updateEmployeeStructure(businessClientId, month, row.employee._id, {
-        earnings,
-        deductions,
-        payDays: Number(payDays) || 0,
-        totalWorkingDays: Number(totalWorkingDays) || 0,
+        ...(hasRole("ctc") ? { ctc: Number(ctc) || 0 } : {}),
+        ...(hasRole("payDays") ? { payDays: Number(payDays) || 0 } : {}),
+        ...(hasRole("totalWorkingDays") ? { totalWorkingDays: Number(totalWorkingDays) || 0 } : {}),
         costCenter,
+        customFields: customValues,
+      });
+
+      const modesPayload: Record<string, string> = {};
+      const percentagesPayload: Record<string, number> = {};
+      const fixedAmountsPayload: Record<string, number> = {};
+      for (const c of [...earningComponents, ...deductionComponents]) {
+        if (!overrideOn[c]) continue;
+        const mode = isLocked(c) ? "percent" : modes[c] === "fixed" ? "fixed" : "percent";
+        modesPayload[c] = mode;
+        if (mode === "fixed") fixedAmountsPayload[c] = Number(fixedAmounts[c]) || 0;
+        else percentagesPayload[c] = Number(percentages[c]) || 0;
+      }
+      await payrollApi.updateEmployeeComponentSettings(businessClientId, month, row.employee._id, {
+        modes: modesPayload,
+        percentages: percentagesPayload,
+        fixedAmounts: fixedAmountsPayload,
       });
       onSaved();
     } catch (err: any) {
@@ -306,6 +638,52 @@ function EmployeeStructureModal({ open, onClose, row, settings, businessClientId
     } finally {
       setSaving(false);
     }
+  }
+
+  function renderComponentRow(c: string) {
+    const on = overrideOn[c] || false;
+    const locked = isLocked(c);
+    const mode = locked ? "percent" : modes[c] || "percent";
+    return (
+      <div key={c} className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-2.5">
+        <span className="w-full shrink-0 text-sm font-medium text-text sm:w-40" title={c}>
+          {c}
+        </span>
+        <label className="flex shrink-0 items-center gap-1.5 text-xs text-text-muted">
+          <Switch checked={on} onChange={(v) => setOverrideOn((s) => ({ ...s, [c]: v }))} />
+          Custom for this employee
+        </label>
+        {on ? (
+          <>
+            {!locked && (
+              <SegmentedTabs options={MODE_OPTIONS} value={mode} onChange={(v) => setModes((m) => ({ ...m, [c]: v }))} />
+            )}
+            {mode === "fixed" ? (
+              <Input
+                type="number"
+                min={0}
+                value={fixedAmounts[c] ?? ""}
+                onChange={(e: any) => setFixedAmounts((v) => ({ ...v, [c]: e.target.value }))}
+                placeholder="₹ amount"
+                className="min-w-32 flex-1"
+              />
+            ) : (
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={percentages[c] ?? ""}
+                onChange={(e: any) => setPercentages((v) => ({ ...v, [c]: e.target.value }))}
+                placeholder={c === "Basic" ? "% of CTC" : "%"}
+                className="min-w-32 flex-1"
+              />
+            )}
+          </>
+        ) : (
+          <span className="text-xs text-text-muted">{clientDefaultLabel(c)}</span>
+        )}
+      </div>
+    );
   }
 
   if (!row) return null;
@@ -321,7 +699,7 @@ function EmployeeStructureModal({ open, onClose, row, settings, businessClientId
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} loading={saving}>
+          <Button variant="brand" onClick={handleSave} loading={saving}>
             Save
           </Button>
         </>
@@ -330,46 +708,56 @@ function EmployeeStructureModal({ open, onClose, row, settings, businessClientId
       <div className="flex flex-col gap-4">
         {error && <div className="rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger">{error}</div>}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Input label="Basic Salary" type="number" value={basicSalary} onChange={(e: any) => setBasicSalary(e.target.value)} />
-          <Input label="Pay Days" type="number" value={payDays} onChange={(e: any) => setPayDays(e.target.value)} />
-          <Input
-            label="Total Working Days"
-            type="number"
-            value={totalWorkingDays}
-            onChange={(e: any) => setTotalWorkingDays(e.target.value)}
-          />
+          {ctcCol && <Input label={ctcCol.label} type="number" value={ctc} onChange={(e: any) => setCtc(e.target.value)} />}
+          {payDaysCol && <Input label={payDaysCol.label} type="number" value={payDays} onChange={(e: any) => setPayDays(e.target.value)} />}
+          {totalWorkingDaysCol && (
+            <Input
+              label={totalWorkingDaysCol.label}
+              type="number"
+              value={totalWorkingDays}
+              onChange={(e: any) => setTotalWorkingDays(e.target.value)}
+            />
+          )}
           <Input label="Cost Center" value={costCenter} onChange={(e: any) => setCostCenter(e.target.value)} />
+        </div>
+        <div className="rounded-lg border border-border bg-surface-2 px-3.5 py-2.5 text-sm text-text-muted">
+          {(row.deductions?.["Employee PF"] !== undefined || row.deductions?.["Employee ESI"] !== undefined) && (
+            <p>
+              <strong className="text-text">Employee PF:</strong> ₹{row.deductions?.["Employee PF"] ?? 0} ·{" "}
+              <strong className="text-text">Employee ESI:</strong> ₹{row.deductions?.["Employee ESI"] ?? 0} — both
+              calculated automatically via statutory wage rules, not editable here.
+            </p>
+          )}
+          <p className="mt-1">
+            <strong className="text-text">Employer PF:</strong> ₹{row.employerPf ?? 0} ·{" "}
+            <strong className="text-text">Employer ESI:</strong> ₹{row.employerEsi ?? 0} — the employer's own cost, not
+            deducted from the employee.
+          </p>
         </div>
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Earnings</p>
-          <div className="grid grid-cols-2 gap-3">
-            {(settings?.earningComponents || [])
-              .filter((c: string) => c !== "Basic Salary")
-              .map((c: string) => (
-                <Input
-                  key={c}
-                  label={c}
-                  type="number"
-                  value={values[`e:${c}`] ?? ""}
-                  onChange={(e: any) => setValues((v) => ({ ...v, [`e:${c}`]: e.target.value }))}
-                />
-              ))}
-          </div>
+          <div className="flex flex-col gap-2">{earningComponents.map((c: string) => renderComponentRow(c))}</div>
         </div>
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Deductions</p>
-          <div className="grid grid-cols-2 gap-3">
-            {(settings?.deductionComponents || []).map((c: string) => (
-              <Input
-                key={c}
-                label={c}
-                type="number"
-                value={values[`d:${c}`] ?? ""}
-                onChange={(e: any) => setValues((v) => ({ ...v, [`d:${c}`]: e.target.value }))}
-              />
-            ))}
-          </div>
+          <div className="flex flex-col gap-2">{deductionComponents.map((c: string) => renderComponentRow(c))}</div>
         </div>
+        {customColumns.length > 0 && (
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Other details</p>
+            <div className="grid grid-cols-2 gap-3">
+              {customColumns.map((c: any) => (
+                <Input
+                  key={c.key}
+                  label={c.label}
+                  type={c.dataType === "number" ? "number" : c.dataType === "date" ? "date" : "text"}
+                  value={customValues[c.key] ?? ""}
+                  onChange={(e: any) => setCustomValues((v) => ({ ...v, [c.key]: e.target.value }))}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -377,7 +765,15 @@ function EmployeeStructureModal({ open, onClose, row, settings, businessClientId
 
 // ── Upload Excel: preview then confirm ──────────────────────────────────────
 
-function UploadModal({ open, onClose, businessClientId, month, onImported }: any) {
+function previewValueFor(row: any, col: any) {
+  if (col.role === "employeeName") return row.employeeName;
+  if (col.role === "ctc") return row.ctc !== undefined && row.ctcCarriedForward ? `${row.ctc} (carried forward)` : row.ctc;
+  if (col.role === "payDays") return row.payDays;
+  if (col.role === "totalWorkingDays") return row.totalWorkingDays;
+  return row.customFields?.[col.key];
+}
+
+function UploadModal({ open, onClose, businessClientId, month, templateColumns, onImported }: any) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<{ data: any[]; errors: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -412,7 +808,19 @@ function UploadModal({ open, onClose, businessClientId, month, onImported }: any
     setLoading(true);
     setError("");
     try {
-      await payrollApi.confirmStructureUpload(businessClientId, month, { rows: preview.data, sourceFileName: file?.name });
+      const { data } = await payrollApi.confirmStructureUpload(businessClientId, month, {
+        rows: preview.data,
+        sourceFileName: file?.name,
+      });
+      const { success = 0, failed = 0, errors: rowErrors = [] } = data.results || {};
+      if (failed > 0) {
+        // A 200 response here doesn't mean every row was imported — each row is
+        // saved independently server-side, so partial/total failure is normal
+        // and must be surfaced instead of silently treated as a full success.
+        setError(`${failed} of ${success + failed} employee(s) failed to import: ${rowErrors.join("; ")}`);
+        if (success > 0) onImported(); // refresh so the ones that did succeed show up
+        return;
+      }
       onImported();
     } catch (err: any) {
       setError(err.response?.data?.message || "Could not import this file");
@@ -433,7 +841,7 @@ function UploadModal({ open, onClose, businessClientId, month, onImported }: any
             <Button variant="secondary" onClick={() => setPreview(null)}>
               Back
             </Button>
-            <Button onClick={handleConfirm} loading={loading} disabled={preview.data.length === 0}>
+            <Button variant="brand" onClick={handleConfirm} loading={loading} disabled={preview.data.length === 0}>
               Confirm import ({preview.data.length} employee{preview.data.length === 1 ? "" : "s"})
             </Button>
           </>
@@ -442,7 +850,7 @@ function UploadModal({ open, onClose, businessClientId, month, onImported }: any
             <Button variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handlePreview} loading={loading}>
+            <Button variant="brand" onClick={handlePreview} loading={loading}>
               Preview
             </Button>
           </>
@@ -454,7 +862,9 @@ function UploadModal({ open, onClose, businessClientId, month, onImported }: any
 
         {!preview ? (
           <div>
-            <label className="text-sm font-medium text-text">Excel file (Employee Name, Basic Salary, Pay Days, Total Working Days)</label>
+            <label className="text-sm font-medium text-text">
+              Excel file ({(templateColumns || []).map((c: any) => c.label).join(", ")})
+            </label>
             <input
               type="file"
               accept=".xlsx,.xls"
@@ -479,19 +889,21 @@ function UploadModal({ open, onClose, businessClientId, month, onImported }: any
               <table className="w-full text-left text-xs">
                 <thead className="bg-surface-2">
                   <tr>
-                    <th className="px-3 py-2">Name</th>
-                    <th className="px-3 py-2">Basic Salary</th>
-                    <th className="px-3 py-2">Pay Days</th>
-                    <th className="px-3 py-2">Total Working Days</th>
+                    {(templateColumns || []).map((c: any) => (
+                      <th key={c.key} className="px-3 py-2">
+                        {c.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.data.map((r, i) => (
+                  {preview.data.map((r: any, i: number) => (
                     <tr key={i} className="border-t border-border">
-                      <td className="px-3 py-1.5">{r.employeeName}</td>
-                      <td className="px-3 py-1.5">{r.basicSalary}</td>
-                      <td className="px-3 py-1.5">{r.payDays}</td>
-                      <td className="px-3 py-1.5">{r.totalWorkingDays}</td>
+                      {(templateColumns || []).map((c: any) => (
+                        <td key={c.key} className="px-3 py-1.5">
+                          {previewValueFor(r, c) ?? ""}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
@@ -522,6 +934,7 @@ export default function ClientSalaryStructurePage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [componentsOpen, setComponentsOpen] = useState(false);
+  const [templateColumnsOpen, setTemplateColumnsOpen] = useState(false);
   const [editRow, setEditRow] = useState<any>(null);
   const [costCenterInput, setCostCenterInput] = useState("");
   const [costCenterSaving, setCostCenterSaving] = useState(false);
@@ -603,6 +1016,10 @@ export default function ClientSalaryStructurePage() {
 
   const totalGross = rows.reduce((sum, r) => sum + (r.gross || 0), 0);
   const percentagesConfigured = settings?.componentPercentages && Object.keys(settings.componentPercentages).length > 0;
+  // CTC uploaded is never adjusted — this only flags rows where Gross +
+  // Employer PF + Employer ESI doesn't add back up to it (see ctcMismatch,
+  // computed server-side in applyPercentagesToStructure).
+  const mismatchedRows = rows.filter((r) => r.ctcMismatch);
 
   const steps = [
     { label: "Import Excel for this month", done: rows.length > 0 },
@@ -611,33 +1028,89 @@ export default function ClientSalaryStructurePage() {
     { label: "Go to Payroll runs to view & run", done: false, link: true },
   ];
 
-  const componentColumns = settings
-    ? [
-        ...settings.earningComponents
-          .filter((c: string) => c !== "Basic Salary")
-          .map((c: string) => ({ key: `e:${c}`, label: c, align: "center" as const, render: (row: any) => row.earnings?.[c] ?? "—" })),
-        ...settings.deductionComponents.map((c: string) => ({
-          key: `d:${c}`,
-          label: c,
-          align: "center" as const,
-          render: (row: any) => row.deductions?.[c] ?? "—",
-        })),
-      ]
+  const earningColumns = settings
+    ? settings.earningComponents.map((c: string) => ({
+        key: `e:${c}`,
+        label: c,
+        align: "center" as const,
+        render: (row: any) => (row.earnings?.[c] !== undefined ? `₹${row.earnings[c]}` : "—"),
+      }))
+    : [];
+  const deductionColumns = settings
+    ? settings.deductionComponents.map((c: string) => ({
+        key: `d:${c}`,
+        label: c,
+        align: "center" as const,
+        render: (row: any) => (row.deductions?.[c] !== undefined ? `₹${row.deductions[c]}` : "—"),
+      }))
     : [];
 
+  const templateColumns = settings?.templateColumns || [];
+  const byRole = (role: string) => templateColumns.find((c: any) => c.role === role);
+  const ctcCol = byRole("ctc");
+  // Fixed on-screen order: Emp ID, then every "employeeName"/"custom" template
+  // column in its configured order (First Name, Last Name, Full Name,
+  // Department, Designation, Location, PAN, UAN/EPF NO, ESI NO — whatever
+  // Template Settings has, excluding "Month" which isn't shown on this table),
+  // then CTC, the earning components (Basic first), Gross Remuneration, the
+  // deduction components, Net Payment, then Employer PF/ESI. Firms can still
+  // drag-reorder via the table header — that saved order
+  // (firmSettings.columnOrder) wins over this default once set.
+  const infoColumns = templateColumns
+    .filter((c: any) => (c.role === "employeeName" || c.role === "custom") && c.key !== "month")
+    .sort((a: any, b: any) => a.order - b.order)
+    .map((c: any) =>
+      c.role === "employeeName"
+        ? { key: "name", label: c.label, render: (row: any) => row.employee?.name || "—" }
+        : {
+            key: `custom:${c.key}`,
+            label: c.label,
+            align: "center" as const,
+            render: (row: any) => row.customFields?.[c.key] || "—",
+          }
+    );
+
+  function netPayment(row: any) {
+    const deductionValues: any[] = Object.values(row.deductions || {});
+    const deductionSum = deductionValues.reduce((sum: number, v) => sum + (Number(v) || 0), 0);
+    return Math.max(0, (Number(row.gross) || 0) - deductionSum);
+  }
+
   const columns = [
-    { key: "code", label: "Employee Code", render: (row: any) => row.employee?.employeeCode || "—" },
-    { key: "name", label: "Name", render: (row: any) => row.employee?.name || "—" },
-    { key: "costCenter", label: "Cost Center", render: (row: any) => row.costCenter || "—" },
-    { key: "basic", label: "Basic Salary", align: "center" as const, render: (row: any) => row.earnings?.["Basic Salary"] ?? 0 },
-    { key: "payDays", label: "Pay Days", align: "center" as const, render: (row: any) => row.payDays ?? "—" },
-    { key: "totalWorkingDays", label: "Total Working Days", align: "center" as const, render: (row: any) => row.totalWorkingDays ?? "—" },
-    ...componentColumns,
-    { key: "gross", label: "Gross", align: "center" as const, render: (row: any) => (row.gross ? `₹${row.gross}` : "—") },
+    { key: "code", label: "Emp ID", render: (row: any) => row.employee?.employeeCode || "—" },
+    ...infoColumns,
+    ...(ctcCol ? [{ key: "ctc", label: ctcCol.label, align: "center" as const, render: (row: any) => `₹${row.ctc ?? 0}` }] : []),
+    ...earningColumns,
+    {
+      key: "gross",
+      label: "Gross Remuneration",
+      align: "center" as const,
+      render: (row: any) => (row.gross ? `₹${row.gross}` : "—"),
+    },
+    ...deductionColumns,
+    {
+      key: "netPayment",
+      label: "Net Payment",
+      align: "center" as const,
+      render: (row: any) => `₹${netPayment(row)}`,
+    },
+    {
+      key: "employerPf",
+      label: "Employer PF",
+      align: "center" as const,
+      render: (row: any) => `₹${row.employerPf ?? 0}`,
+    },
+    {
+      key: "employerEsi",
+      label: "Employer ESI",
+      align: "center" as const,
+      render: (row: any) => `₹${row.employerEsi ?? 0}`,
+    },
     {
       key: "actions",
       label: "",
       align: "center" as const,
+      noReorder: true,
       render: (row: any) => (
         <Button variant="ghost" size="sm" title="Edit salary structure" onClick={() => setEditRow(row)}>
           <Pencil size={14} />
@@ -645,6 +1118,32 @@ export default function ClientSalaryStructurePage() {
       ),
     },
   ];
+  const orderedColumns = applyColumnOrder(columns, firmSettings?.columnOrder);
+
+  async function handleReorderColumns(newKeyOrder: string[]) {
+    setFirmSettings((prev: any) => ({ ...prev, columnOrder: newKeyOrder }));
+    try {
+      await payrollApi.updateFirmPayrollSettings({ columnOrder: newKeyOrder });
+    } catch {
+      // Best-effort — if it fails to save, the next page load just falls
+      // back to the last successfully saved order.
+    }
+  }
+
+  // Column keys change whenever components are renamed/added/removed (e.g.
+  // "Basic Salary" -> "Basic") — a firm-wide saved drag order from before such
+  // a rename no longer matches any current column, so renamed/new columns
+  // (Basic, Net Payment, Employer PF/ESI...) get pushed to the very end
+  // instead of their intended default position. This clears it so the
+  // built-in default order takes over again — the CA can re-drag afterward.
+  async function handleResetColumnOrder() {
+    setFirmSettings((prev: any) => ({ ...prev, columnOrder: [] }));
+    try {
+      await payrollApi.updateFirmPayrollSettings({ columnOrder: [] });
+    } catch {
+      // Best-effort — if it fails, the next page load re-fetches anyway.
+    }
+  }
 
   if (loading && !client) {
     return (
@@ -671,7 +1170,7 @@ export default function ClientSalaryStructurePage() {
           <Button variant="secondary" size="sm" onClick={handleDownloadTemplate}>
             <Download size={15} /> Download template
           </Button>
-          <Button size="sm" onClick={() => setUploadOpen(true)}>
+          <Button variant="brand" size="sm" onClick={() => setUploadOpen(true)}>
             <Upload size={15} /> Upload Excel
           </Button>
         </div>
@@ -716,7 +1215,7 @@ export default function ClientSalaryStructurePage() {
         {justSaved && (
           <div className="mt-1 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-success/30 bg-success-bg px-3.5 py-2.5 text-sm text-success">
             <span>Structure complete for {monthLabel(month)} — ready for payroll.</span>
-            <Button size="sm" onClick={() => navigate(`${basePath}/clients/${clientId}/payroll`)}>
+            <Button variant="brand" size="sm" onClick={() => navigate(`${basePath}/clients/${clientId}/payroll`)}>
               <Eye size={14} /> Go to View Payroll
             </Button>
           </div>
@@ -739,8 +1238,29 @@ export default function ClientSalaryStructurePage() {
           <Button variant="ghost" size="sm" onClick={() => setComponentsOpen(true)}>
             Salary components
           </Button>
+          <Button variant="ghost" size="sm" onClick={() => setTemplateColumnsOpen(true)}>
+            <Table2 size={15} /> Template Settings
+          </Button>
+          {firmSettings?.columnOrder?.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResetColumnOrder}
+              title="Clear the saved column drag-order for this firm and go back to the default order"
+            >
+              <RotateCcw size={15} /> Reset column order
+            </Button>
+          )}
         </div>
       </Card>
+
+      {mismatchedRows.length > 0 && (
+        <div className="rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger">
+          <strong>CTC mismatch for {mismatchedRows.length} employee(s):</strong> Gross + Employer PF + Employer ESI
+          should equal CTC. Please check and update Structure Setting for the row(s) highlighted red below —
+          the structure can't be saved until this is fixed.
+        </div>
+      )}
 
       <Card className="p-4 sm:p-5">
         <div className="mb-4 flex items-center gap-2">
@@ -755,13 +1275,24 @@ export default function ClientSalaryStructurePage() {
             description="Download the template, have the client fill it in, then upload it here to get started."
           />
         ) : (
-          <Table columns={columns} data={rows} keyField="_id" />
+          <Table
+            columns={orderedColumns}
+            data={rows}
+            keyField="_id"
+            onReorderColumns={handleReorderColumns}
+            rowClassName={(row: any) => (row.ctcMismatch ? "bg-danger-bg" : "")}
+          />
         )}
       </Card>
 
       {rows.length > 0 && (
         <div className="flex justify-end">
-          <Button onClick={() => setConfirmSaveOpen(true)} disabled={run?.structureSaved}>
+          <Button
+            variant="brand"
+            onClick={() => setConfirmSaveOpen(true)}
+            disabled={run?.structureSaved || mismatchedRows.length > 0}
+            title={mismatchedRows.length > 0 ? "Fix the CTC mismatch(es) above before saving" : undefined}
+          >
             <ClipboardCheck size={15} /> {run?.structureSaved ? `Structure saved for ${monthLabel(month)}` : `Save structure for ${monthLabel(month)}`}
           </Button>
         </div>
@@ -772,6 +1303,7 @@ export default function ClientSalaryStructurePage() {
         onClose={() => setUploadOpen(false)}
         businessClientId={clientId}
         month={month}
+        templateColumns={[...(settings?.templateColumns || [])].sort((a: any, b: any) => a.order - b.order)}
         onImported={() => {
           setUploadOpen(false);
           loadStructure(month);
@@ -800,6 +1332,16 @@ export default function ClientSalaryStructurePage() {
           loadStructure(month);
         }}
       />
+      <TemplateColumnsModal
+        open={templateColumnsOpen}
+        onClose={() => setTemplateColumnsOpen(false)}
+        settings={settings}
+        businessClientId={clientId}
+        onSaved={(saved: any) => {
+          setSettings(saved);
+          setTemplateColumnsOpen(false);
+        }}
+      />
       <EmployeeStructureModal
         open={!!editRow}
         onClose={() => setEditRow(null)}
@@ -822,7 +1364,7 @@ export default function ClientSalaryStructurePage() {
             <Button variant="secondary" onClick={() => setConfirmSaveOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveStructure} loading={saving}>
+            <Button variant="brand" onClick={handleSaveStructure} loading={saving}>
               Confirm & save
             </Button>
           </>

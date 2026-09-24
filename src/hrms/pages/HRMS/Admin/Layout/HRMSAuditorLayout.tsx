@@ -10,6 +10,7 @@ import {
   SidebarTitle,
   SidebarToggle,
   SidebarGroup,
+  CollapsibleSidebarGroup,
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/collapsible-sidebar";
@@ -216,119 +217,128 @@ function HRMSAuditorLayoutInner({ children }: Props) {
 
         {/* ================= CONTENT ================= */}
         <SidebarContent className="space-y-4">
-          {/* 📊 Dashboard */}
-          <SidebarGroup label="Dashboard">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/auditor/dashboard" icon={LayoutDashboard}>
-                Overview
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          {/* Dashboard — standalone link, no group/expand */}
+          <SidebarNavItem to="/hrms/auditor/dashboard" icon={LayoutDashboard}>
+            Dashboard
+          </SidebarNavItem>
 
-          {/* 👥 Employees */}
-          <SidebarGroup label="Employees">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/auditor/employees" icon={Users}>
-                Employee Records
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/salary-structures" icon={Wallet}>
-                Salary Structures
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/onboarding" icon={ClipboardCheck}>
-                Onboarding Tasks
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/resignations" icon={ExitIcon}>
-                Resignation & Exit
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Employees"
+            icon={Users}
+            paths={["/hrms/auditor/employees", "/hrms/auditor/salary-structures", "/hrms/auditor/onboarding", "/hrms/auditor/resignations"]}
+          >
+            <SidebarNavItem to="/hrms/auditor/employees" icon={Users}>
+              Employee Records
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/salary-structures" icon={Wallet}>
+              Salary Structures
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/onboarding" icon={ClipboardCheck}>
+              Onboarding Tasks
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/resignations" icon={ExitIcon}>
+              Resignation & Exit
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 💰 Payroll */}
-          <SidebarGroup label="Payroll">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/auditor/payroll" icon={IndianRupee}>
-                Payroll Summary
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/payroll-runs" icon={PlayCircle}>
-                Payroll Runs
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/payslips" icon={Receipt}>
-                Payslips
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Payroll"
+            icon={IndianRupee}
+            paths={["/hrms/auditor/payroll", "/hrms/auditor/payroll-runs", "/hrms/auditor/payslips"]}
+          >
+            <SidebarNavItem to="/hrms/auditor/payroll" icon={IndianRupee}>
+              Payroll Summary
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/payroll-runs" icon={PlayCircle}>
+              Payroll Runs
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/payslips" icon={Receipt}>
+              Payslips
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 🕒 Attendance */}
-          <SidebarGroup label="Attendance">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/auditor/attendance" icon={CalendarCheck}>
-                Attendance Logs
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/attendance-requests" icon={ClipboardList}>
-                Correction Requests
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/holidays" icon={SunIcon}>
-                Holiday Calendar
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Attendance"
+            icon={CalendarCheck}
+            paths={["/hrms/auditor/attendance", "/hrms/auditor/attendance-requests", "/hrms/auditor/holidays"]}
+          >
+            <SidebarNavItem to="/hrms/auditor/attendance" icon={CalendarCheck}>
+              Attendance Logs
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/attendance-requests" icon={ClipboardList}>
+              Correction Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/holidays" icon={SunIcon}>
+              Holiday Calendar
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 🌴 Leaves */}
-          <SidebarGroup label="Leaves">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/auditor/leaves" icon={CalendarOff}>
-                Leave Records
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/leave-encashment" icon={Wallet}>
-                Leave Encashment
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/leave-types" icon={ClipboardCheck}>
-                Leave Types & Policies
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Leaves"
+            icon={CalendarOff}
+            paths={["/hrms/auditor/leaves", "/hrms/auditor/leave-encashment", "/hrms/auditor/leave-types"]}
+          >
+            <SidebarNavItem to="/hrms/auditor/leaves" icon={CalendarOff}>
+              Leave Records
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/leave-encashment" icon={Wallet}>
+              Leave Encashment
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/leave-types" icon={ClipboardCheck}>
+              Leave Types & Policies
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 📑 Compliance Reports */}
-          <SidebarGroup label="Compliance">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/auditor/compliance" icon={FileCheck2}>
-                Compliance Reports
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/policies" icon={ShieldCheck}>
-                Company Policies
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/statutory-reports" icon={FileBarChart}>
-                Statutory Reports
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/auditor/documents" icon={FileStack}>
-                Document Verification
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Compliance"
+            icon={FileCheck2}
+            paths={["/hrms/auditor/compliance", "/hrms/auditor/policies", "/hrms/auditor/statutory-reports", "/hrms/auditor/documents"]}
+          >
+            <SidebarNavItem to="/hrms/auditor/compliance" icon={FileCheck2}>
+              Compliance Reports
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/policies" icon={ShieldCheck}>
+              Company Policies
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/statutory-reports" icon={FileBarChart}>
+              Statutory Reports
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/auditor/documents" icon={FileStack}>
+              Document Verification
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
 
-          {/* 👤 Self Service */}
-          <SidebarGroup label="Self Service">
-            <SidebarNav>
-              <SidebarNavItem to="/hrms/self-service/profile" icon={User}>
-                My Profile
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/attendance" icon={Clock}>
-                My Attendance
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/leave" icon={ClipboardList}>
-                My Leave Request
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/payroll" icon={Wallet}>
-                My Payroll
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/documents" icon={FileUp}>
-                My Documents
-              </SidebarNavItem>
-              <SidebarNavItem to="/hrms/self-service/requests" icon={FileText}>
-                My Requests
-              </SidebarNavItem>
-            </SidebarNav>
-          </SidebarGroup>
+          <CollapsibleSidebarGroup
+            label="Self Service"
+            icon={User}
+            paths={[
+              "/hrms/self-service/profile",
+              "/hrms/self-service/attendance",
+              "/hrms/self-service/leave",
+              "/hrms/self-service/payroll",
+              "/hrms/self-service/documents",
+              "/hrms/self-service/requests",
+            ]}
+          >
+            <SidebarNavItem to="/hrms/self-service/profile" icon={User}>
+              My Profile
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/attendance" icon={Clock}>
+              My Attendance
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/leave" icon={ClipboardList}>
+              My Leave Request
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/payroll" icon={Wallet}>
+              My Payroll
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/documents" icon={FileUp}>
+              My Documents
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/requests" icon={FileText}>
+              My Requests
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
         </SidebarContent>
 
         {/* ================= FOOTER ================= */}

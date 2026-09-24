@@ -18,8 +18,14 @@ export function setAuthFailureHandler(handler) {
   authFailureHandler = handler;
 }
 
+// VITE_API_URL is unset (or "/api") for a same-origin deploy where the
+// backend serves the built frontend itself. Set it to the backend's full
+// origin (e.g. https://ca-backend.onrender.com/api) when frontend and
+// backend are hosted separately, as with a Vercel + Render split.
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+
 const axiosClient = axios.create({
-  baseURL: "/api/v1",
+  baseURL: `${API_URL}/v1`,
   withCredentials: true,
 });
 

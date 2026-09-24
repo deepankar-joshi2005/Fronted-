@@ -53,6 +53,12 @@ export const SIDEBAR_CONFIG = {
     { label: "Personal Finance Tracker", icon: PiggyBank, path: "finance-tracker" },
     { label: "Support", icon: LifeBuoy, path: "support" },
   ],
-  [ROLES.BUSINESS_CLIENT_ADMIN]: [{ label: "Dashboard", icon: LayoutDashboard, path: "" }],
+  // Non-HRMS Business Client Admin's own dashboard — HRMS clients never see
+  // this (GuestOnly hands them off to HRMS via SSO before it renders).
+  [ROLES.BUSINESS_CLIENT_ADMIN]: [
+    { label: "Dashboard", icon: LayoutDashboard, path: "" },
+    { label: "Employees", icon: Users, path: "employees" },
+    { label: "Salary Structure", icon: Wallet, path: "salary-structure" },
+  ],
   [ROLES.BUSINESS_CLIENT_EMPLOYEE]: [{ label: "Dashboard", icon: LayoutDashboard, path: "" }],
 };

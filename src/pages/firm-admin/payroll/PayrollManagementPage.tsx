@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Wallet, Briefcase, UserPlus, ExternalLink } from "lucide-react";
+import { Search, Wallet, Briefcase, UserPlus, ExternalLink, Eye } from "lucide-react";
 import * as businessClientApi from "../../../api/businessClient.api.js";
 import { useAuth } from "../../../hooks/useAuth";
 import { HRMS_BASE_PATH } from "../../../utils/hrmsSso.js";
@@ -10,6 +10,8 @@ import Badge from "../../../components/ui/Badge.jsx";
 import Button from "../../../components/ui/Button.jsx";
 import Spinner from "../../../components/ui/Spinner.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
+import SegmentedTabs from "../../../components/ui/SegmentedTabs.jsx";
+import ViewClientModal from "../../../components/business-clients/ViewClientModal.jsx";
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   individual: "Individual",
@@ -34,6 +36,8 @@ export default function PayrollManagementPage() {
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState("hrms");
+  const [viewTarget, setViewTarget] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -51,11 +55,13 @@ export default function PayrollManagementPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      [r.name, r.gstin, r.pan, r.contactPerson, r.phone].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
-    );
-  }, [rows, search]);
+    return rows
+      .filter((r) => (tab === "hrms" ? r.useHrms : !r.useHrms))
+      .filter((r) => {
+        if (!q) return true;
+        return [r.name, r.gstin, r.pan, r.contactPerson, r.phone].filter(Boolean).some((v) => String(v).toLowerCase().includes(q));
+      });
+  }, [rows, search, tab]);
 
   async function handleOpenPayroll(row: any) {
     setError("");
@@ -111,6 +117,15 @@ export default function PayrollManagementPage() {
         </div>
       </Card>
 
+      <SegmentedTabs
+        options={[
+          { value: "hrms", label: "HRMS" },
+          { value: "non-hrms", label: "Non-HRMS" },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+
       {filtered.length === 0 ? (
         <EmptyState
           icon={Briefcase}
@@ -118,7 +133,7 @@ export default function PayrollManagementPage() {
           description={
             rows.length === 0
               ? "Business Clients and converted CRM leads will show up here once you have some."
-              : "Try a different search term."
+              : "Try a different search term, or switch tabs."
           }
         />
       ) : (
@@ -140,25 +155,34 @@ export default function PayrollManagementPage() {
                 {row.contactPerson && <p>{row.contactPerson}</p>}
                 {row.phone && <p>{row.phone}</p>}
               </div>
-              <Button size="sm" onClick={() => handleOpenPayroll(row)} loading={busyId === row._id}>
-                {row.kind === "lead" ? (
-                  <>
-                    <UserPlus size={14} /> Set up payroll
-                  </>
-                ) : row.useHrms ? (
-                  <>
-                    <ExternalLink size={14} /> Open HRMS payroll
-                  </>
-                ) : (
-                  <>
-                    <Wallet size={14} /> View payroll
-                  </>
+              <div className="flex gap-2">
+                <Button variant="brand" size="sm" className="flex-1" onClick={() => handleOpenPayroll(row)} loading={busyId === row._id}>
+                  {row.kind === "lead" ? (
+                    <>
+                      <UserPlus size={14} /> Set up payroll
+                    </>
+                  ) : row.useHrms ? (
+                    <>
+                      <ExternalLink size={14} /> Open HRMS payroll
+                    </>
+                  ) : (
+                    <>
+                      <Wallet size={14} /> View payroll
+                    </>
+                  )}
+                </Button>
+                {row.kind === "business_client" && (
+                  <Button variant="secondary" size="sm" title="View client details" onClick={() => setViewTarget(row._id)}>
+                    <Eye size={14} />
+                  </Button>
                 )}
-              </Button>
+              </div>
             </Card>
           ))}
         </div>
       )}
+
+      {viewTarget && <ViewClientModal clientId={viewTarget} onClose={() => setViewTarget(null)} />}
     </div>
   );
 }

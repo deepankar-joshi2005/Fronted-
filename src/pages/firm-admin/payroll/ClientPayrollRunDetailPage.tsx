@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   ClipboardList,
+  Banknote,
 } from "lucide-react";
 import * as businessClientApi from "../../../api/businessClient.api.js";
 import * as payrollApi from "../../../api/clientPayroll.api";
@@ -123,19 +124,6 @@ export default function ClientPayrollRunDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, month]);
 
-  async function handleGenerate() {
-    setBusy(true);
-    setError("");
-    try {
-      await payrollApi.generateClientPayroll(clientId!, month!);
-      await load();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Could not generate payroll");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function handleRun() {
     setBusy(true);
     try {
@@ -192,19 +180,8 @@ export default function ClientPayrollRunDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {run.status === "Draft" && (
-            <Button
-              size="sm"
-              onClick={handleGenerate}
-              loading={busy}
-              disabled={!run.structureSaved}
-              title={run.structureSaved ? undefined : "Complete and save this month's Salary Structure first"}
-            >
-              <Calculator size={15} /> Generate
-            </Button>
-          )}
           {run.status === "Generated" && (
-            <Button size="sm" onClick={() => setConfirmRun(true)}>
+            <Button variant="brand" size="sm" onClick={() => setConfirmRun(true)}>
               <Play size={15} /> Run payroll
             </Button>
           )}
@@ -212,6 +189,13 @@ export default function ClientPayrollRunDetailPage() {
             <Button variant="secondary" size="sm" onClick={handleExport}>
               <Download size={15} /> Export
             </Button>
+          )}
+          {generated && (
+            <Link to={`${basePath}/clients/${clientId}/payroll/${month}/payment-file`}>
+              <Button variant="secondary" size="sm">
+                <Banknote size={15} /> Payment File
+              </Button>
+            </Link>
           )}
           <Link to={`${basePath}/clients/${clientId}/payroll`}>
             <Button variant="secondary" size="sm">
@@ -224,7 +208,7 @@ export default function ClientPayrollRunDetailPage() {
       {error && <div className="rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger">{error}</div>}
       {run.status === "Draft" && !run.structureSaved && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/30 bg-warning-bg px-3.5 py-2.5 text-sm text-warning">
-          <span>This month's Salary Structure hasn't been saved yet — Generate is disabled until it is.</span>
+          <span>This month's Salary Structure hasn't been saved yet — save it to generate payroll numbers.</span>
           <Link to={`${basePath}/clients/${clientId}/salary-structure`}>
             <Button size="sm" variant="secondary">
               <ClipboardList size={14} /> Go to Salary Structure
@@ -367,7 +351,7 @@ export default function ClientPayrollRunDetailPage() {
                 </div>
 
                 {expanded && (
-                  <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
                     <div className="rounded-lg border-l-4 border-l-success bg-surface-2 p-4">
                       <p className="mb-3 text-xs font-bold uppercase tracking-wide text-success">Earnings</p>
                       {earningComponents.map((c) => (
@@ -383,6 +367,13 @@ export default function ClientPayrollRunDetailPage() {
                       ))}
                       <Row label="Total Deductions" value={generated ? currency(e.totalDeduction) : "—"} bold />
                       <Row label="Net Pay" value={generated ? currency(e.net) : "—"} bold />
+                    </div>
+
+                    <div className="rounded-lg border-l-4 border-l-brand bg-surface-2 p-4">
+                      <p className="mb-3 text-xs font-bold uppercase tracking-wide text-brand">Employer Contribution</p>
+                      <Row label="Employer PF" value={currency(e.employerPf ?? 0)} />
+                      <Row label="Employer ESI" value={currency(e.employerEsi ?? 0)} />
+                      <p className="mt-2 text-xs text-text-muted">Employer's own cost — not deducted from the employee.</p>
                     </div>
                   </div>
                 )}
@@ -403,7 +394,7 @@ export default function ClientPayrollRunDetailPage() {
             <Button variant="secondary" onClick={() => setConfirmRun(false)}>
               Cancel
             </Button>
-            <Button onClick={handleRun} loading={busy}>
+            <Button variant="brand" onClick={handleRun} loading={busy}>
               Confirm & run payroll
             </Button>
           </>

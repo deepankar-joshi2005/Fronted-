@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Download, Eye, Play, Calculator, ClipboardList, Users, Wallet, FileClock, TrendingUp, CalendarClock } from "lucide-react";
+import { ArrowLeft, Download, Eye, Play, ClipboardList, Users, Wallet, FileClock, TrendingUp, CalendarClock, IdCard, Banknote } from "lucide-react";
 import * as businessClientApi from "../../../api/businessClient.api.js";
 import * as payrollApi from "../../../api/clientPayroll.api";
 import { useAuth } from "../../../hooks/useAuth";
@@ -58,6 +58,7 @@ export default function ClientPayrollPage() {
   const navigate = useNavigate();
   const [client, setClient] = useState<any>(null);
   const [runs, setRuns] = useState<any[]>([]);
+  const [deductionComponents, setDeductionComponents] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyMonth, setBusyMonth] = useState<string | null>(null);
   const [confirmRunMonth, setConfirmRunMonth] = useState<string | null>(null);
@@ -66,12 +67,14 @@ export default function ClientPayrollPage() {
     if (!clientId) return;
     setLoading(true);
     try {
-      const [clientRes, runsRes] = await Promise.all([
+      const [clientRes, runsRes, settingsRes] = await Promise.all([
         businessClientApi.getBusinessClient(clientId),
         payrollApi.listClientPayrollRuns(clientId),
+        payrollApi.getPayrollSettings(clientId),
       ]);
       setClient(clientRes.data.data);
       setRuns(runsRes.data.data);
+      setDeductionComponents(settingsRes.data.data?.deductionComponents || []);
     } finally {
       setLoading(false);
     }
@@ -81,18 +84,6 @@ export default function ClientPayrollPage() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
-
-  async function handleGenerate(month: string) {
-    setBusyMonth(month);
-    try {
-      await payrollApi.generateClientPayroll(clientId!, month);
-      await loadAll();
-    } catch (err: any) {
-      alert(err.response?.data?.message || "Could not generate payroll");
-    } finally {
-      setBusyMonth(null);
-    }
-  }
 
   async function handleRun(month: string) {
     setBusyMonth(month);
@@ -119,27 +110,26 @@ export default function ClientPayrollPage() {
       render: (r: any) => (r.structureSaved ? <Badge variant="success">Saved</Badge> : <Badge variant="warning">Not saved</Badge>),
     },
     { key: "employeeCount", label: "Employees", align: "center" as const },
+    ...deductionComponents.map((c) => ({
+      key: `ded:${c}`,
+      label: c,
+      align: "center" as const,
+      render: (r: any) => (r.deductionTotals?.[c] ? `₹${r.deductionTotals[c]}` : "—"),
+    })),
     { key: "totalNet", label: "Total Net", align: "center" as const, render: (r: any) => (r.totalNet ? `₹${r.totalNet}` : "—") },
     {
       key: "actions",
       label: "",
       render: (r: any) => (
-        <div className="flex flex-wrap items-center gap-1">
-          <Button variant="ghost" size="sm" title="View" onClick={() => navigate(`${basePath}/clients/${clientId}/payroll/${r.month}`)}>
+        <div className="flex flex-nowrap items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            title="View"
+            onClick={() => navigate(`${basePath}/clients/${clientId}/payroll/${r.month}`)}
+          >
             <Eye size={14} />
           </Button>
-          {r.status === "Draft" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              title={r.structureSaved ? "Generate" : "Complete Salary Structure for this month first"}
-              onClick={() => handleGenerate(r.month)}
-              loading={busyMonth === r.month}
-              disabled={!r.structureSaved}
-            >
-              <Calculator size={14} />
-            </Button>
-          )}
           {r.status === "Generated" && (
             <Button variant="ghost" size="sm" title="Run payroll" onClick={() => setConfirmRunMonth(r.month)} loading={busyMonth === r.month}>
               <Play size={14} />
@@ -148,6 +138,16 @@ export default function ClientPayrollPage() {
           {r.status !== "Draft" && (
             <Button variant="ghost" size="sm" title="Export" onClick={() => handleExport(r.month)}>
               <Download size={14} />
+            </Button>
+          )}
+          {r.status !== "Draft" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Payment File"
+              onClick={() => navigate(`${basePath}/clients/${clientId}/payroll/${r.month}/payment-file`)}
+            >
+              <Banknote size={14} />
             </Button>
           )}
         </div>
@@ -184,9 +184,14 @@ export default function ClientPayrollPage() {
             </div>
           </div>
         </div>
-        <Button size="sm" onClick={() => navigate(`${basePath}/clients/${clientId}/salary-structure`)}>
-          <ClipboardList size={15} /> Salary Structure
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => navigate(`${basePath}/clients/${clientId}/employee-details`)}>
+            <IdCard size={15} /> Employee Details
+          </Button>
+          <Button variant="brand" size="sm" onClick={() => navigate(`${basePath}/clients/${clientId}/salary-structure`)}>
+            <ClipboardList size={15} /> Salary Structure
+          </Button>
+        </div>
       </div>
 
       <ClientIdentityCard client={client} />
@@ -235,7 +240,7 @@ export default function ClientPayrollPage() {
               <Eye size={14} /> View
             </Button>
           ) : (
-            <Button size="sm" onClick={() => navigate(`${basePath}/clients/${clientId}/salary-structure`)}>
+            <Button variant="brand" size="sm" onClick={() => navigate(`${basePath}/clients/${clientId}/salary-structure`)}>
               <ClipboardList size={14} /> Set up Salary Structure
             </Button>
           )}
@@ -253,7 +258,7 @@ export default function ClientPayrollPage() {
             title="No salary structure yet"
             description="Set up this client's Salary Structure for a month to get started."
             action={
-              <Button size="sm" onClick={() => navigate(`${basePath}/clients/${clientId}/salary-structure`)}>
+              <Button variant="brand" size="sm" onClick={() => navigate(`${basePath}/clients/${clientId}/salary-structure`)}>
                 <ClipboardList size={14} /> Salary Structure
               </Button>
             }
@@ -273,6 +278,7 @@ export default function ClientPayrollPage() {
               Cancel
             </Button>
             <Button
+              variant="brand"
               onClick={async () => {
                 const month = confirmRunMonth!;
                 setConfirmRunMonth(null);

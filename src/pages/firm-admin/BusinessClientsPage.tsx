@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Briefcase, Copy, Check, KeyRound, Ban, Power, Eye, Pencil, Trash2, Wallet, ArrowUpCircle } from "lucide-react";
 import * as businessClientApi from "../../api/businessClient.api.js";
@@ -14,6 +14,8 @@ import Badge from "../../components/ui/Badge.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import SegmentedTabs from "../../components/ui/SegmentedTabs.jsx";
+import ViewClientModal from "../../components/business-clients/ViewClientModal.jsx";
 
 const CLIENT_TYPE_LABELS = {
   individual: "Individual",
@@ -234,8 +236,8 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
       setError("Select at least one service");
       return;
     }
-    if (!editingClient && form.useHrms && !form.email) {
-      setError("Email is required to create the HRMS login");
+    if (!editingClient && !form.email) {
+      setError("Email is required to create this client's login");
       return;
     }
     if (!editingClient && form.useHrms && !form.planTierId) {
@@ -312,7 +314,13 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
               <Input label={req("Contact Person Name")} required value={form.contactPerson} onChange={update("contactPerson")} />
               <Input label={req("Mobile Number")} required value={form.phone} onChange={update("phone")} />
             </div>
-            <Input label="Email" type="email" value={form.email} onChange={update("email")} />
+            <Input
+              label={editingClient ? "Email" : req("Email")}
+              required={!editingClient}
+              type="email"
+              value={form.email}
+              onChange={update("email")}
+            />
           </div>
         </div>
 
@@ -347,21 +355,22 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
               <span>
                 <span className="block text-sm font-medium text-text">Use HRMS</span>
                 <span className="block text-xs text-text-muted">
-                  Creates an HR/admin login for this business client's own HRMS workspace, using the Primary Contact
-                  details above. Leave unticked and this client gets no login at all.
+                  This client always gets its own login using the Primary Contact details above. Tick this to also
+                  provision a full HRMS workspace for them — leave it unticked and they land on a simpler dashboard
+                  to manage their own employees instead.
                 </span>
               </span>
             </label>
-            {form.useHrms && (
-              <div className="mt-3 flex flex-col gap-3">
-                <Input
-                  label="HRMS admin password"
-                  type="text"
-                  minLength={8}
-                  value={form.adminPassword}
-                  onChange={update("adminPassword")}
-                  placeholder="Leave blank to auto-generate and email a temporary password"
-                />
+            <div className="mt-3 flex flex-col gap-3">
+              <Input
+                label={form.useHrms ? "HRMS admin password" : "Login password"}
+                type="text"
+                minLength={8}
+                value={form.adminPassword}
+                onChange={update("adminPassword")}
+                placeholder="Leave blank to auto-generate and email a temporary password"
+              />
+              {form.useHrms && (
                 <Field label={req("HRMS plan")}>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {planTiers.map((tier) => (
@@ -384,8 +393,8 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
                     ))}
                   </div>
                 </Field>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ) : (
           <div className="border-t border-border pt-4">
@@ -398,83 +407,6 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
           </div>
         )}
       </form>
-    </Modal>
-  );
-}
-
-// ── View Business Client ────────────────────────────────────────────────────
-
-function ViewClientModal({ client, onClose }) {
-  return (
-    <Modal open onClose={onClose} title={client.name} size="lg" footer={<Button onClick={onClose}>Close</Button>}>
-      <div className="flex flex-col gap-4">
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Business Information</p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <div>
-              <p className="text-xs text-text-muted">Client Type</p>
-              <p className="text-text">{CLIENT_TYPE_LABELS[client.clientType] || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-text-muted">Industry</p>
-              <p className="text-text">{client.industry || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-text-muted">PAN</p>
-              <p className="text-text">{client.pan || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-text-muted">GSTIN</p>
-              <p className="text-text">{client.gstin || "—"}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-border pt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Primary Contact</p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <div>
-              <p className="text-xs text-text-muted">Contact Person</p>
-              <p className="text-text">{client.contactPerson || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-text-muted">Mobile</p>
-              <p className="text-text">{client.phone || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-text-muted">Email</p>
-              <p className="text-text">{client.email || "—"}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-border pt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Address</p>
-          <p className="text-sm text-text">
-            {[client.address, client.city, client.state, client.pincode].filter(Boolean).join(", ") || "—"}
-          </p>
-        </div>
-
-        <div className="border-t border-border pt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Services</p>
-          {client.services?.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {client.services.map((s) => (
-                <Badge key={s} variant="neutral">
-                  {SERVICE_LABELS[s] || s}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-text-muted">—</p>
-          )}
-        </div>
-
-        <div className="border-t border-border pt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Client Portal</p>
-          <p className="text-sm text-text">HRMS {client.useHrms !== false ? "enabled" : "not enabled"}</p>
-        </div>
-      </div>
     </Modal>
   );
 }
@@ -638,6 +570,12 @@ export default function BusinessClientsPage() {
   const [resetTempPassword, setResetTempPassword] = useState(null);
   const [upgradeTarget, setUpgradeTarget] = useState(null);
   const [upgradeResult, setUpgradeResult] = useState(null);
+  const [tab, setTab] = useState("hrms");
+
+  const filteredClients = useMemo(
+    () => clients.filter((c) => (tab === "hrms" ? c.useHrms !== false : c.useHrms === false)),
+    [clients, tab]
+  );
 
   async function load(searchTerm = search) {
     setLoading(true);
@@ -739,7 +677,7 @@ export default function BusinessClientsPage() {
       label: "",
       render: (row) => (
         <div className="flex flex-wrap items-center gap-1">
-          <Button variant="ghost" size="sm" title="View" onClick={() => setViewTarget(row)}>
+          <Button variant="ghost" size="sm" title="View" onClick={() => setViewTarget(row._id)}>
             <Eye size={14} />
           </Button>
           <Button variant="ghost" size="sm" title="Edit" onClick={() => openEdit(row)}>
@@ -820,15 +758,28 @@ export default function BusinessClientsPage() {
         </form>
       </Card>
 
+      <SegmentedTabs
+        options={[
+          { value: "hrms", label: "HRMS" },
+          { value: "non-hrms", label: "Non-HRMS" },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+
       {loading ? (
         <div className="flex justify-center py-16">
           <Spinner size={28} />
         </div>
-      ) : clients.length === 0 ? (
+      ) : filteredClients.length === 0 ? (
         <EmptyState
           icon={Briefcase}
-          title="No business clients yet"
-          description="Onboard your first business client to give them their own HRMS login."
+          title={clients.length === 0 ? "No business clients yet" : `No ${tab === "hrms" ? "HRMS" : "Non-HRMS"} clients`}
+          description={
+            clients.length === 0
+              ? "Onboard your first business client to give them their own login."
+              : "Switch tabs, or add a new business client."
+          }
           action={
             <Button onClick={openCreate} size="sm">
               <Plus size={15} /> Add business client
@@ -836,7 +787,7 @@ export default function BusinessClientsPage() {
           }
         />
       ) : (
-        <Table columns={columns} data={clients} keyField="_id" />
+        <Table columns={columns} data={filteredClients} keyField="_id" />
       )}
 
       <ClientFormModal
@@ -850,20 +801,25 @@ export default function BusinessClientsPage() {
         }}
       />
 
-      {createdResult?.admin && (
+      {createdResult?.admin?.tempPassword && (
         <TempPasswordNotice
           title="Business client onboarded"
           email={createdResult.admin.email}
           name={createdResult.admin.name}
           tempPassword={createdResult.admin.tempPassword}
-          hint="The same email and password also logs them into their HRMS."
+          hint={
+            createdResult.client?.useHrms !== false
+              ? "The same email and password also logs them into their HRMS."
+              : "They'll land on their own dashboard to manage employees after logging in."
+          }
           onClose={() => setCreatedResult(null)}
         />
       )}
-      {createdResult && !createdResult.admin && (
+      {createdResult && !createdResult.admin?.tempPassword && (
         <Modal open onClose={() => setCreatedResult(null)} title="Business client onboarded">
           <p className="text-sm text-text-muted">
-            <strong className="text-text">{createdResult.client.name}</strong> has been added.
+            <strong className="text-text">{createdResult.client.name}</strong> has been added
+            {createdResult.admin ? " — their admin can log in with the password you set." : "."}
           </p>
           <div className="mt-5 flex justify-end">
             <Button onClick={() => setCreatedResult(null)}>Done</Button>
@@ -871,7 +827,7 @@ export default function BusinessClientsPage() {
         </Modal>
       )}
 
-      {viewTarget && <ViewClientModal client={viewTarget} onClose={() => setViewTarget(null)} />}
+      {viewTarget && <ViewClientModal clientId={viewTarget} onClose={() => setViewTarget(null)} />}
 
       {deleteTarget && (
         <DeleteClientModal
