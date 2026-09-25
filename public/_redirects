@@ -1,0 +1,8 @@
+# HRMS is a separate MPA entry (hrms-app.html) — any /hrms-app/* deep link
+# (e.g. the SSO hand-off /hrms-app/sso?token=...) must rewrite to that page,
+# same as vite.config.ts's dev-only hrmsAppFallback middleware, or Netlify's
+# static host 404s since no literal file exists at that path.
+/hrms-app/*  /hrms-app.html  200
+
+# CA-Management's own SPA routes.
+/*  /index.html  200
