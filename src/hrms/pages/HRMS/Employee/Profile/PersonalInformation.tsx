@@ -22,6 +22,7 @@ import {
 import Loader from "../../Loader";
 import { toast } from "../../Alert/Toast";
 import ChangePasswordModal from "../../ChangePasswordModal";
+import { isValidEmail, getPhoneNumberError } from "@/utils/validation";
 
 const API = import.meta.env.VITE_API_URL;
 const BASE_URL = API?.replace("/api", "") || "";
@@ -84,6 +85,7 @@ export default function PersonalInformation() {
   const [openContact, setOpenContact] = useState(false);
   const [openChangePassword, setOpenChangePassword] = useState(false);
   const [userDocs, setUserDocs] = useState<UserDoc[]>([]);
+  const [contactErrors, setContactErrors] = useState<{ email?: string; mobile?: string }>({});
 
   const [form, setForm] = useState({
     name: "",
@@ -283,7 +285,10 @@ export default function PersonalInformation() {
           {/* -------- Contact Information -------- */}
           <Section
             title="Contact Information"
-            onEdit={() => setOpenContact(true)}
+            onEdit={() => {
+              setContactErrors({});
+              setOpenContact(true);
+            }}
           >
             <Info label="Email" value={user.email} icon={<Mail />} />
             <Info label="Mobile" value={user.mobile} icon={<Phone />} />
@@ -440,13 +445,36 @@ export default function PersonalInformation() {
         >
           <Input
             label="Email"
+            type="email"
             value={form.email}
-            onChange={(e: any) => setForm({ ...form, email: e.target.value })}
+            onChange={(e: any) => {
+              setForm({ ...form, email: e.target.value });
+              setContactErrors((prev) => ({ ...prev, email: undefined }));
+            }}
+            onBlur={(e: any) => {
+              const val = e.target.value.trim();
+              setContactErrors((prev) => ({
+                ...prev,
+                email: val && !isValidEmail(val) ? "Enter a valid email address" : undefined,
+              }));
+            }}
+            error={contactErrors.email}
           />
           <Input
             label="Mobile"
+            type="tel"
             value={form.mobile}
-            onChange={(e: any) => setForm({ ...form, mobile: e.target.value })}
+            onChange={(e: any) => {
+              setForm({ ...form, mobile: e.target.value });
+              setContactErrors((prev) => ({ ...prev, mobile: undefined }));
+            }}
+            onBlur={(e: any) => {
+              setContactErrors((prev) => ({
+                ...prev,
+                mobile: getPhoneNumberError(e.target.value) || undefined,
+              }));
+            }}
+            error={contactErrors.mobile}
           />
           <Input
             label="Address"
@@ -455,6 +483,13 @@ export default function PersonalInformation() {
           />
           <ModalActions
             onSave={() => {
+              const emailError =
+                form.email && !isValidEmail(form.email) ? "Enter a valid email address" : undefined;
+              const mobileError = getPhoneNumberError(form.mobile) || undefined;
+              if (emailError || mobileError) {
+                setContactErrors({ email: emailError, mobile: mobileError });
+                return;
+              }
               updateUser({ email: form.email, mobile: form.mobile, address: form.address });
               setOpenContact(false);
             }}
@@ -518,13 +553,16 @@ const Modal = ({ title, children, onClose }: any) => (
 );
 
 
-const Input = ({ label, ...props }: any) => (
+const Input = ({ label, error, ...props }: any) => (
   <div>
     <label className="text-xs text-gray-500">{label}</label>
     <input
       {...props}
-      className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+      className={`mt-1 w-full border rounded-md px-3 py-2 text-sm ${
+        error ? "border-red-500" : ""
+      }`}
     />
+    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
   </div>
 );
 

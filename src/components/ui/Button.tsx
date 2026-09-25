@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 
 const VARIANTS = {
   primary:
-    "bg-accent text-accent-fg shadow-md shadow-accent/25 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent/35 active:brightness-95",
+    "bg-brand text-white shadow-md shadow-brand/25 hover:bg-brand-hover hover:shadow-lg hover:shadow-brand/35 active:brightness-95",
   brand:
     "bg-brand text-white shadow-md shadow-brand/25 hover:bg-brand-hover hover:shadow-lg hover:shadow-brand/35 active:brightness-95",
   secondary: "bg-surface-2 text-text hover:bg-border border border-border",

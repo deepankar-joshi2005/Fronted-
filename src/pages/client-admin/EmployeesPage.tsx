@@ -8,6 +8,12 @@ import Badge from "../../components/ui/Badge.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import { sanitizePan, sanitizePhone, validatePan, validatePhone, validateEmail } from "../../utils/validators.js";
+
+const SANITIZERS = {
+  phone: sanitizePhone,
+  pan: sanitizePan,
+};
 
 const EMPTY_FORM = {
   name: "",
@@ -32,11 +38,19 @@ const SOURCE_LABELS: Record<string, { label: string; variant: string }> = {
 function EmployeeFormModal({ open, onClose, editingEmployee, onSaved }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  const VALIDATORS = {
+    phone: (v) => validatePhone(v, false),
+    email: (v) => validateEmail(v, false),
+    pan: (v) => validatePan(v, false),
+  };
 
   useEffect(() => {
     if (!open) return;
     setError("");
+    setFieldErrors({});
     if (editingEmployee) {
       setForm({
         name: editingEmployee.name || "",
@@ -57,7 +71,19 @@ function EmployeeFormModal({ open, onClose, editingEmployee, onSaved }) {
   }, [open, editingEmployee]);
 
   function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (e) => {
+      const raw = e.target.value;
+      const value = SANITIZERS[field] ? SANITIZERS[field](raw) : raw;
+      setForm((f) => ({ ...f, [field]: value }));
+      setFieldErrors((fe) => (field in fe ? { ...fe, [field]: VALIDATORS[field] ? VALIDATORS[field](value) : "" } : fe));
+    };
+  }
+
+  function handleBlur(field) {
+    return () => {
+      if (!VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: VALIDATORS[field](form[field] || "") }));
+    };
   }
 
   async function handleSubmit(e) {
@@ -65,6 +91,16 @@ function EmployeeFormModal({ open, onClose, editingEmployee, onSaved }) {
     setError("");
     if (!form.name) {
       setError("Name is required");
+      return;
+    }
+    const errors = {};
+    for (const field of Object.keys(VALIDATORS)) {
+      const msg = VALIDATORS[field](form[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields");
       return;
     }
     setSubmitting(true);
@@ -102,8 +138,24 @@ function EmployeeFormModal({ open, onClose, editingEmployee, onSaved }) {
         {error && <div className="rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger">{error}</div>}
         <Input label="Full Name" required value={form.name} onChange={update("name")} />
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Phone" value={form.phone} onChange={update("phone")} />
-          <Input label="Email" type="email" value={form.email} onChange={update("email")} />
+          <Input
+            label="Phone"
+            value={form.phone}
+            onChange={update("phone")}
+            onBlur={handleBlur("phone")}
+            error={fieldErrors.phone}
+            placeholder="10-digit mobile number"
+            inputMode="numeric"
+            maxLength={10}
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={update("email")}
+            onBlur={handleBlur("email")}
+            error={fieldErrors.email}
+          />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Input label="Designation" value={form.designation} onChange={update("designation")} />
@@ -113,7 +165,15 @@ function EmployeeFormModal({ open, onClose, editingEmployee, onSaved }) {
         <div className="border-t border-border pt-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Bank &amp; ID (for payroll)</p>
           <div className="flex flex-col gap-4">
-            <Input label="PAN" value={form.pan} onChange={update("pan")} />
+            <Input
+              label="PAN"
+              value={form.pan}
+              onChange={update("pan")}
+              onBlur={handleBlur("pan")}
+              error={fieldErrors.pan}
+              placeholder="ABCDE1234F"
+              maxLength={10}
+            />
             <div className="grid grid-cols-2 gap-4">
               <Input label="Account Holder Name" value={form.accountHolderName} onChange={update("accountHolderName")} />
               <Input label="Bank Name" value={form.bankName} onChange={update("bankName")} />

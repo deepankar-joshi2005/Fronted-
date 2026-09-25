@@ -7,6 +7,13 @@ import Select from "../../components/ui/Select.jsx";
 import Button from "../../components/ui/Button.jsx";
 import Card from "../../components/ui/Card.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
+import { sanitizePhone, sanitizePan, validatePhone, validatePan, validateEmail } from "../../utils/validators.js";
+
+const SANITIZERS = {
+  phone: sanitizePhone,
+  emergencyContactPhone: sanitizePhone,
+  pan: sanitizePan,
+};
 
 const EMPTY_FORM = {
   phone: "",
@@ -65,6 +72,14 @@ export default function PublicEmployeeFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const VALIDATORS: Record<string, (v: string) => string> = {
+    phone: (v) => validatePhone(v, true),
+    email: (v) => validateEmail(v, false),
+    pan: (v) => validatePan(v, false),
+    emergencyContactPhone: (v) => validatePhone(v, false),
+  };
 
   useEffect(() => {
     publicEmployeeFormApi
@@ -77,7 +92,19 @@ export default function PublicEmployeeFormPage() {
   }, [token]);
 
   function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (e) => {
+      const raw = e.target.value;
+      const value = SANITIZERS[field] ? SANITIZERS[field](raw) : raw;
+      setForm((f) => ({ ...f, [field]: value }));
+      setFieldErrors((fe) => (field in fe ? { ...fe, [field]: VALIDATORS[field] ? VALIDATORS[field](value) : "" } : fe));
+    };
+  }
+
+  function handleBlur(field) {
+    return () => {
+      if (!VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: VALIDATORS[field]((form as any)[field] || "") }));
+    };
   }
 
   async function handleIdentify(e) {
@@ -98,7 +125,17 @@ export default function PublicEmployeeFormPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitError("");
-    if (!form.phone || !form.designation || !form.dateOfJoining) {
+    const errors: Record<string, string> = {};
+    for (const field of Object.keys(VALIDATORS)) {
+      const msg = VALIDATORS[field]((form as any)[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setSubmitError("Please fix the highlighted fields");
+      return;
+    }
+    if (!form.designation || !form.dateOfJoining) {
       setSubmitError("Please fill all required fields");
       return;
     }
@@ -206,8 +243,25 @@ export default function PublicEmployeeFormPage() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Your Details</p>
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Input label="Phone Number" required value={form.phone} onChange={update("phone")} />
-                <Input label="Personal Email" type="email" value={form.email} onChange={update("email")} />
+                <Input
+                  label="Phone Number"
+                  required
+                  value={form.phone}
+                  onChange={update("phone")}
+                  onBlur={handleBlur("phone")}
+                  error={fieldErrors.phone}
+                  placeholder="10-digit mobile number"
+                  inputMode="numeric"
+                  maxLength={10}
+                />
+                <Input
+                  label="Personal Email"
+                  type="email"
+                  value={form.email}
+                  onChange={update("email")}
+                  onBlur={handleBlur("email")}
+                  error={fieldErrors.email}
+                />
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Input
@@ -248,7 +302,15 @@ export default function PublicEmployeeFormPage() {
               Bank &amp; ID (optional — for payroll)
             </p>
             <div className="flex flex-col gap-4">
-              <Input label="PAN" value={form.pan} onChange={update("pan")} />
+              <Input
+                label="PAN"
+                value={form.pan}
+                onChange={update("pan")}
+                onBlur={handleBlur("pan")}
+                error={fieldErrors.pan}
+                placeholder="ABCDE1234F"
+                maxLength={10}
+              />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Input label="Account Holder Name" value={form.accountHolderName} onChange={update("accountHolderName")} />
                 <Input label="Bank Name" value={form.bankName} onChange={update("bankName")} />
@@ -264,7 +326,16 @@ export default function PublicEmployeeFormPage() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Emergency Contact</p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input label="Contact Name" value={form.emergencyContactName} onChange={update("emergencyContactName")} />
-              <Input label="Contact Phone" value={form.emergencyContactPhone} onChange={update("emergencyContactPhone")} />
+              <Input
+                label="Contact Phone"
+                value={form.emergencyContactPhone}
+                onChange={update("emergencyContactPhone")}
+                onBlur={handleBlur("emergencyContactPhone")}
+                error={fieldErrors.emergencyContactPhone}
+                placeholder="10-digit mobile number"
+                inputMode="numeric"
+                maxLength={10}
+              />
             </div>
           </div>
 

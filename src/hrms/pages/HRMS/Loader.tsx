@@ -1,10 +1,13 @@
 /** @format */
 import styled from "styled-components";
 
+// Sidebar/navbar's --sidebar-primary blue (src/hrms/index.css) — kept in sync
+// here rather than reading the CSS var, since Loader can render before the
+// layout (and its stylesheet) has mounted.
 const Loader = () => {
   return (
-    <StyledWrapper>
-      <div className="loader" />
+    <StyledWrapper role="status" aria-label="Loading">
+      <div className="spinner" />
     </StyledWrapper>
   );
 };
@@ -17,57 +20,19 @@ const StyledWrapper = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  .loader {
-    width: 84px;
-    aspect-ratio: 1;
-    background: linear-gradient(#ff4500 0 0) left/50% 100% no-repeat,
-      conic-gradient(
-        from -90deg at 32px 9.47px,
-        #fff8dc 135deg,
-        #8b0000 0 270deg,
-        #ffa500 0
-      );
-    background-blend-mode: multiply;
-    -webkit-mask: linear-gradient(
-        to bottom right,
-        #0000 8px,
-        #000 0 52px,
-        #0000 0
-      ),
-      conic-gradient(from -90deg at right 6px bottom 6px, #000 90deg, #0000 0);
-    mask: linear-gradient(to bottom right, #0000 8px, #000 0 52px, #0000 0),
-      conic-gradient(from -90deg at right 6px bottom 6px, #000 90deg, #0000 0);
-    background-size: 50% 50%;
-    -webkit-mask-size: 50% 50%;
-    mask-size: 50% 50%;
-    -webkit-mask-composite: source-in;
-    mask-composite: intersect;
-    animation: l9 1.8s infinite cubic-bezier(0.5, 0.2, 0.5, 1);
-    box-shadow: 0 0 15px rgba(255, 69, 0, 0.6);
-    transform: perspective(1000px) rotateY(15deg);
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 3.5px solid rgba(59, 130, 246, 0.15);
+    border-top-color: #3b82f6;
+    animation: spin 0.7s linear infinite;
   }
 
-  @keyframes l9 {
-    0% {
-      background-position: 0% 0%, 0 0;
-      transform: perspective(1000px) rotateY(15deg) scale(1);
-      box-shadow: 0 0 15px rgba(255, 69, 0, 0.6);
-    }
-    25% {
-      background-position: 100% 0%, 0 0;
-    }
-    50% {
-      background-position: 100% 100%, 0 0;
-      transform: perspective(1000px) rotateY(15deg) scale(1.08);
-      box-shadow: 0 0 25px rgba(255, 69, 0, 0.8);
-    }
-    75% {
-      background-position: 0% 100%, 0 0;
-    }
-    100% {
-      background-position: 0% 0%, 0 0;
-      transform: perspective(1000px) rotateY(15deg) scale(1);
-      box-shadow: 0 0 15px rgba(255, 69, 0, 0.6);
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
     }
   }
 `;

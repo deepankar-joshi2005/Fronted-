@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Plus, Trash2 } from "lucide-react";
 import { type SchoolHead } from "@/api/schoolService";
+import { isValidEmail } from "@/utils/validation";
 
 interface SchoolHeadFormProps {
   schoolHeads: SchoolHead[];
@@ -13,6 +15,15 @@ interface SchoolHeadFormProps {
 
 export default function SchoolHeadForm({ schoolHeads, onChange }: SchoolHeadFormProps) {
   const [profilePicFiles, setProfilePicFiles] = useState<{ [key: number]: File | null }>({});
+  const [emailErrors, setEmailErrors] = useState<{ [key: number]: string }>({});
+
+  const validateEmailField = (index: number, value: string) => {
+    const trimmed = value.trim();
+    setEmailErrors((prev) => ({
+      ...prev,
+      [index]: trimmed && !isValidEmail(trimmed) ? "Enter a valid email address" : "",
+    }));
+  };
 
   const addSchoolHead = () => {
     const newHead: SchoolHead = {
@@ -28,11 +39,16 @@ export default function SchoolHeadForm({ schoolHeads, onChange }: SchoolHeadForm
   const removeSchoolHead = (index: number) => {
     const updatedHeads = schoolHeads.filter((_, i) => i !== index);
     onChange(updatedHeads);
-    
+
     // Remove profile pic file if exists
     const newProfilePicFiles = { ...profilePicFiles };
     delete newProfilePicFiles[index];
     setProfilePicFiles(newProfilePicFiles);
+
+    // Remove email error if exists
+    const newEmailErrors = { ...emailErrors };
+    delete newEmailErrors[index];
+    setEmailErrors(newEmailErrors);
   };
 
   const updateSchoolHead = (index: number, field: keyof SchoolHead, value: string) => {
@@ -113,23 +129,30 @@ export default function SchoolHeadForm({ schoolHeads, onChange }: SchoolHeadForm
                   id={`head-email-${index}`}
                   type="email"
                   value={head.email}
-                  onChange={(e) => updateSchoolHead(index, 'email', e.target.value)}
+                  onChange={(e) => {
+                    updateSchoolHead(index, 'email', e.target.value);
+                    if (emailErrors[index]) {
+                      setEmailErrors((prev) => ({ ...prev, [index]: "" }));
+                    }
+                  }}
+                  onBlur={(e) => validateEmailField(index, e.target.value)}
                   placeholder="Enter email address"
                   required
+                  className={emailErrors[index] ? "border-red-500" : ""}
                 />
+                {emailErrors[index] && (
+                  <p className="text-sm text-red-500">{emailErrors[index]}</p>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor={`head-phone-${index}`}>Phone Number *</Label>
-                <Input
-                  id={`head-phone-${index}`}
-                  type="tel"
-                  value={head.phoneNumber}
-                  onChange={(e) => updateSchoolHead(index, 'phoneNumber', e.target.value)}
-                  placeholder="Enter phone number"
-                  required
-                />
-              </div>
+              <PhoneInput
+                id={`head-phone-${index}`}
+                name={`head-phone-${index}`}
+                label="Phone Number"
+                value={head.phoneNumber}
+                onChange={(value) => updateSchoolHead(index, 'phoneNumber', value)}
+                required
+              />
             </div>
 
             {/* <div className="space-y-2">

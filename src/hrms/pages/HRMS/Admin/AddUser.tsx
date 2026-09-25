@@ -6,6 +6,7 @@ import { LeadMentorForm } from "./LeadMentorForm";
 import { toast } from "../Alert/Toast";
 import { Eye, EyeOff, Upload, Download, X, FileText, AlertCircle, CheckCircle2, Camera, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isValidEmail, getPhoneNumberError } from "@/utils/validation";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
@@ -54,6 +55,7 @@ export default function AddUser() {
     joiningDate: "",
     password: "",
     role: "",
+    isTrainee: true,
   });
 
   /* ================= COMPANY & JOB ================= */
@@ -187,8 +189,19 @@ export default function AddUser() {
     const e: any = {};
 
     Object.entries(formData).forEach(([k, v]) => {
+      if (k === "isTrainee") return; // boolean checkbox — false is a valid value, not a missing one
       if (!v) e[k] = "Required";
     });
+
+    // Format validation (only if a value was provided)
+    if (formData.email && !isValidEmail(formData.email)) {
+      e.email = "Enter a valid email address";
+    }
+
+    if (formData.mobile) {
+      const mobileError = getPhoneNumberError(formData.mobile);
+      if (mobileError) e.mobile = mobileError;
+    }
 
     // Required job fields (costCenterId is optional)
     // IMPORTANT: Manager role doesn't need a Reporting Manager for the first hire
@@ -228,6 +241,7 @@ export default function AddUser() {
       data.append("joiningDate", formData.joiningDate);
       data.append("password", formData.password);
       data.append("role", formData.role);
+      data.append("isTrainee", String(formData.isTrainee));
 
       // JOB
       data.append("companyId", job.companyId);
@@ -271,6 +285,7 @@ export default function AddUser() {
         joiningDate: "",
         password: "",
         role: "",
+        isTrainee: true,
       });
 
       setJob({
@@ -406,10 +421,17 @@ export default function AddUser() {
                 Email <span className="text-[var(--status-critical)]">*</span>
               </label>
               <input
+                type="email"
                 value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
+                onChange={(e) => {
+                  setFormData({ ...formData, email: e.target.value });
+                  if (errors.email) setErrors((prev: any) => ({ ...prev, email: "" }));
+                }}
+                onBlur={(e) => {
+                  if (e.target.value && !isValidEmail(e.target.value)) {
+                    setErrors((prev: any) => ({ ...prev, email: "Enter a valid email address" }));
+                  }
+                }}
                 className={inputClass(!!errors.email)}
               />
               {errors.email && (
@@ -423,10 +445,18 @@ export default function AddUser() {
                 Mobile <span className="text-[var(--status-critical)]">*</span>
               </label>
               <input
+                type="tel"
                 value={formData.mobile}
-                onChange={(e) =>
-                  setFormData({ ...formData, mobile: e.target.value })
-                }
+                onChange={(e) => {
+                  setFormData({ ...formData, mobile: e.target.value });
+                  if (errors.mobile) setErrors((prev: any) => ({ ...prev, mobile: "" }));
+                }}
+                onBlur={(e) => {
+                  const mobileError = getPhoneNumberError(e.target.value);
+                  if (mobileError) {
+                    setErrors((prev: any) => ({ ...prev, mobile: mobileError }));
+                  }
+                }}
                 className={inputClass(!!errors.mobile)}
               />
               {errors.mobile && (
@@ -753,6 +783,23 @@ export default function AddUser() {
             {errors.employmentType && (
               <p className={errorTextClass}>{errors.employmentType}</p>
             )}
+          </div>
+
+          {/* Trainee / Onboarding Training */}
+          <div className="sm:col-span-2 flex items-start gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3.5 py-3">
+            <input
+              id="isTrainee"
+              type="checkbox"
+              checked={formData.isTrainee}
+              onChange={(e) => setFormData({ ...formData, isTrainee: e.target.checked })}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
+            />
+            <label htmlFor="isTrainee" className="text-sm text-[var(--foreground)] cursor-pointer">
+              <span className="font-medium">Trainee — must complete training before accessing other modules</span>
+              <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+                While checked, this employee will only see the Training module (videos + tests for their department) until HR marks their onboarding complete.
+              </p>
+            </label>
           </div>
         </div>
       </div>

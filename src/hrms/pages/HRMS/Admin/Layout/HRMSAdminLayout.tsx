@@ -26,6 +26,9 @@ import {
   ShieldCheck,
   Building2,
   Settings,
+  GraduationCap,
+  ListChecks,
+  Users,
 } from "lucide-react";
 
 import { LogoutButton } from "@/components/ui/logout-button";
@@ -111,6 +114,19 @@ export default function HRMSAdminLayout({ children }: Props) {
             </SidebarNavItem>
             <SidebarNavItem to="/hrms/admin/onboarding/transport" icon={Car}>
               Transport / Parking
+            </SidebarNavItem>
+          </CollapsibleSidebarGroup>
+
+          <CollapsibleSidebarGroup
+            label="Training"
+            icon={GraduationCap}
+            paths={["/hrms/admin/training/modules", "/hrms/admin/training/trainees"]}
+          >
+            <SidebarNavItem to="/hrms/admin/training/modules" icon={ListChecks}>
+              Training Modules
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/admin/training/trainees" icon={Users}>
+              Trainees
             </SidebarNavItem>
           </CollapsibleSidebarGroup>
 

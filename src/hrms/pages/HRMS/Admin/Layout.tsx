@@ -48,8 +48,6 @@ import {
   Lock,
   ArrowLeft,
   GraduationCap,
-  HeartPulse,
-  Umbrella,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -408,14 +406,17 @@ function SuperAdminLayoutInner({ children }: HRMSAdminLayoutProps) {
             </SidebarNavItem>
           </CollapsibleSidebarGroup>
 
-          {/* 4. Training — not built yet, placeholder pages */}
+          {/* 4. Training — employee onboarding LMS (POSH stays a placeholder for now) */}
           <CollapsibleSidebarGroup
             label="Training"
             icon={GraduationCap}
-            paths={["/hrms/SuperAdmin/training/overview", "/hrms/SuperAdmin/training/posh"]}
+            paths={["/hrms/SuperAdmin/training/modules", "/hrms/SuperAdmin/training/trainees", "/hrms/SuperAdmin/training/posh"]}
           >
-            <SidebarNavItem to="/hrms/SuperAdmin/training/overview" icon={ListChecks}>
-              Overview
+            <SidebarNavItem to="/hrms/SuperAdmin/training/modules" icon={ListChecks}>
+              Training Modules
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/SuperAdmin/training/trainees" icon={Users}>
+              Trainees
             </SidebarNavItem>
             <SidebarNavItem to="/hrms/SuperAdmin/training/posh" icon={ShieldCheck}>
               POSH
@@ -494,25 +495,12 @@ function SuperAdminLayoutInner({ children }: HRMSAdminLayoutProps) {
           </CollapsibleSidebarGroup>
 
           {/* 7. Policies */}
-          <CollapsibleSidebarGroup
-            label="Policies"
-            icon={ShieldCheck}
-            paths={["/hrms/SuperAdmin/policies", "/hrms/SuperAdmin/policies/medical", "/hrms/SuperAdmin/policies/insurance", "/hrms/SuperAdmin/policies/posh"]}
-          >
+          <CollapsibleSidebarGroup label="Policies" icon={ShieldCheck} paths={["/hrms/SuperAdmin/policies"]}>
             <SidebarNavItem to="/hrms/SuperAdmin/policies?tab=attendance" icon={Clock}>
               Attendance Policy
             </SidebarNavItem>
             <SidebarNavItem to="/hrms/SuperAdmin/policies?tab=leave" icon={Briefcase}>
               Leave Policy
-            </SidebarNavItem>
-            <SidebarNavItem to="/hrms/SuperAdmin/policies/medical" icon={HeartPulse}>
-              Medical Policy
-            </SidebarNavItem>
-            <SidebarNavItem to="/hrms/SuperAdmin/policies/insurance" icon={Umbrella}>
-              Insurance
-            </SidebarNavItem>
-            <SidebarNavItem to="/hrms/SuperAdmin/policies/posh" icon={AlertCircle}>
-              POSH
             </SidebarNavItem>
             <SidebarNavItem to="/hrms/SuperAdmin/policies?tab=company" icon={Settings}>
               Company Policies

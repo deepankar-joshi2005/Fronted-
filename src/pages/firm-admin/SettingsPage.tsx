@@ -7,8 +7,15 @@ import Select from "../../components/ui/Select.jsx";
 import Button from "../../components/ui/Button.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
+import { sanitizePan, sanitizeGstin, sanitizePhone, validatePan, validateGstin, validatePhone, validateEmail } from "../../utils/validators.js";
 
 const PLAN_BADGE = { trial: "brand", active: "success", suspended: "danger", expired: "neutral" };
+
+const SANITIZERS = {
+  pan: sanitizePan,
+  gstin: sanitizeGstin,
+  phone: sanitizePhone,
+};
 
 export default function FirmSettingsPage() {
   const [firm, setFirm] = useState(null);
@@ -17,6 +24,14 @@ export default function FirmSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const VALIDATORS = {
+    pan: (v) => validatePan(v, false),
+    gstin: (v) => validateGstin(v, false),
+    phone: (v) => validatePhone(v, false),
+    email: (v) => validateEmail(v, false),
+  };
 
   useEffect(() => {
     caFirmApi.getMyFirm().then(({ data }) => {
@@ -42,17 +57,39 @@ export default function FirmSettingsPage() {
   }, []);
 
   function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (e) => {
+      const raw = e.target.value;
+      const value = SANITIZERS[field] ? SANITIZERS[field](raw) : raw;
+      setForm((f) => ({ ...f, [field]: value }));
+      setFieldErrors((fe) => (field in fe ? { ...fe, [field]: VALIDATORS[field] ? VALIDATORS[field](value) : "" } : fe));
+    };
   }
 
   function updateAddress(field) {
     return (e) => setForm((f) => ({ ...f, address: { ...f.address, [field]: e.target.value } }));
   }
 
+  function handleBlur(field) {
+    return () => {
+      if (!VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: VALIDATORS[field](form[field] || "") }));
+    };
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setSaved(false);
+    const errors = {};
+    for (const field of Object.keys(VALIDATORS)) {
+      const msg = VALIDATORS[field](form[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields");
+      return;
+    }
     setSaving(true);
     try {
       const { data } = await caFirmApi.updateMyFirm(form);
@@ -97,8 +134,24 @@ export default function FirmSettingsPage() {
           <h2 className="text-base font-semibold text-heading">Firm Profile</h2>
           <Input label="Firm name" required value={form.name} onChange={update("name")} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label="Firm email" type="email" value={form.email} onChange={update("email")} />
-            <Input label="Firm phone" value={form.phone} onChange={update("phone")} />
+            <Input
+              label="Firm email"
+              type="email"
+              value={form.email}
+              onChange={update("email")}
+              onBlur={handleBlur("email")}
+              error={fieldErrors.email}
+            />
+            <Input
+              label="Firm phone"
+              value={form.phone}
+              onChange={update("phone")}
+              onBlur={handleBlur("phone")}
+              error={fieldErrors.phone}
+              placeholder="10-digit mobile number"
+              inputMode="numeric"
+              maxLength={10}
+            />
           </div>
         </Card>
 
@@ -119,8 +172,24 @@ export default function FirmSettingsPage() {
             </Select>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input label="Firm PAN" value={form.pan} onChange={update("pan")} placeholder="ABCDE1234F" maxLength={10} />
-            <Input label="GSTIN" value={form.gstin} onChange={update("gstin")} placeholder="Optional" />
+            <Input
+              label="Firm PAN"
+              value={form.pan}
+              onChange={update("pan")}
+              onBlur={handleBlur("pan")}
+              error={fieldErrors.pan}
+              placeholder="ABCDE1234F"
+              maxLength={10}
+            />
+            <Input
+              label="GSTIN"
+              value={form.gstin}
+              onChange={update("gstin")}
+              onBlur={handleBlur("gstin")}
+              error={fieldErrors.gstin}
+              placeholder="22ABCDE1234F1Z5"
+              maxLength={15}
+            />
           </div>
         </Card>
 

@@ -10,6 +10,7 @@ import Badge from "../../components/ui/Badge.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import { sanitizePan, sanitizeGstin, sanitizePhone, validatePan, validateGstin, validatePhone, validateEmail } from "../../utils/validators.js";
 
 const INITIAL_FORM = {
   name: "",
@@ -217,6 +218,28 @@ function FirmDetailsModal({ firm, onClose }) {
   );
 }
 
+const FIRM_SANITIZERS = {
+  pan: sanitizePan,
+  gstin: sanitizeGstin,
+  phone: sanitizePhone,
+};
+
+const FIRM_VALIDATORS = {
+  name: (v) => (v.trim() ? "" : "Firm name is required"),
+  email: (v) => validateEmail(v, false),
+  phone: (v) => validatePhone(v, false),
+  pan: (v) => validatePan(v, false),
+  gstin: (v) => validateGstin(v, false),
+};
+
+const CREATE_FIRM_VALIDATORS = {
+  ...FIRM_VALIDATORS,
+  constitutionType: (v) => (v ? "" : "Select the firm's constitution type"),
+  adminName: (v) => (v.trim() ? "" : "Admin name is required"),
+  adminDesignation: (v) => (v ? "" : "Select the admin's designation"),
+  adminEmail: (v) => validateEmail(v, true),
+};
+
 function EditFirmModal({ firm, onClose, onSaved }) {
   const [form, setForm] = useState({
     name: firm.name || "",
@@ -228,15 +251,38 @@ function EditFirmModal({ firm, onClose, onSaved }) {
     gstin: firm.gstin || "",
   });
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (e) => {
+      const raw = e.target.value;
+      const value = FIRM_SANITIZERS[field] ? FIRM_SANITIZERS[field](raw) : raw;
+      setForm((f) => ({ ...f, [field]: value }));
+      setFieldErrors((fe) => (field in fe ? { ...fe, [field]: FIRM_VALIDATORS[field] ? FIRM_VALIDATORS[field](value) : "" } : fe));
+    };
+  }
+
+  function handleBlur(field) {
+    return () => {
+      if (!FIRM_VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: FIRM_VALIDATORS[field](form[field] || "") }));
+    };
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    const errors = {};
+    for (const field of Object.keys(FIRM_VALIDATORS)) {
+      const msg = FIRM_VALIDATORS[field](form[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields");
+      return;
+    }
     setSubmitting(true);
     try {
       await caFirmApi.updateCaFirm(firm._id, form);
@@ -271,10 +317,33 @@ function EditFirmModal({ firm, onClose, onSaved }) {
             {error}
           </div>
         )}
-        <Input label="Firm name" required value={form.name} onChange={update("name")} />
+        <Input
+          label="Firm name"
+          required
+          value={form.name}
+          onChange={update("name")}
+          onBlur={handleBlur("name")}
+          error={fieldErrors.name}
+        />
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Firm email" type="email" value={form.email} onChange={update("email")} />
-          <Input label="Firm phone" value={form.phone} onChange={update("phone")} />
+          <Input
+            label="Firm email"
+            type="email"
+            value={form.email}
+            onChange={update("email")}
+            onBlur={handleBlur("email")}
+            error={fieldErrors.email}
+          />
+          <Input
+            label="Firm phone"
+            value={form.phone}
+            onChange={update("phone")}
+            onBlur={handleBlur("phone")}
+            error={fieldErrors.phone}
+            placeholder="10-digit mobile number"
+            inputMode="numeric"
+            maxLength={10}
+          />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Input
@@ -295,10 +364,20 @@ function EditFirmModal({ firm, onClose, onSaved }) {
             label="Firm PAN"
             value={form.pan}
             onChange={update("pan")}
+            onBlur={handleBlur("pan")}
+            error={fieldErrors.pan}
             placeholder="ABCDE1234F"
             maxLength={10}
           />
-          <Input label="GSTIN" value={form.gstin} onChange={update("gstin")} placeholder="Optional" />
+          <Input
+            label="GSTIN"
+            value={form.gstin}
+            onChange={update("gstin")}
+            onBlur={handleBlur("gstin")}
+            error={fieldErrors.gstin}
+            placeholder="22ABCDE1234F1Z5"
+            maxLength={15}
+          />
         </div>
       </form>
     </Modal>
@@ -359,6 +438,7 @@ export default function CaFirmsPage() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [createdResult, setCreatedResult] = useState(null);
   const [resetTarget, setResetTarget] = useState(null);
   const [resetDoneFor, setResetDoneFor] = useState(null);
@@ -385,12 +465,34 @@ export default function CaFirmsPage() {
   }, [tab]);
 
   function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (e) => {
+      const raw = e.target.value;
+      const value = FIRM_SANITIZERS[field] ? FIRM_SANITIZERS[field](raw) : raw;
+      setForm((f) => ({ ...f, [field]: value }));
+      setFieldErrors((fe) => (field in fe ? { ...fe, [field]: CREATE_FIRM_VALIDATORS[field] ? CREATE_FIRM_VALIDATORS[field](value) : "" } : fe));
+    };
+  }
+
+  function handleBlur(field) {
+    return () => {
+      if (!CREATE_FIRM_VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: CREATE_FIRM_VALIDATORS[field](form[field] || "") }));
+    };
   }
 
   async function handleCreate(e) {
     e.preventDefault();
     setError("");
+    const errors = {};
+    for (const field of Object.keys(CREATE_FIRM_VALIDATORS)) {
+      const msg = CREATE_FIRM_VALIDATORS[field](form[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields");
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = { ...form };
@@ -398,6 +500,7 @@ export default function CaFirmsPage() {
       const { data } = await caFirmApi.createCaFirm(payload);
       setModalOpen(false);
       setForm(INITIAL_FORM);
+      setFieldErrors({});
       setCreatedResult(data.data);
       loadFirms();
     } catch (err) {
@@ -577,11 +680,34 @@ export default function CaFirmsPage() {
               {error}
             </div>
           )}
-          <Input label="Firm name" required value={form.name} onChange={update("name")} />
+          <Input
+            label="Firm name"
+            required
+            value={form.name}
+            onChange={update("name")}
+            onBlur={handleBlur("name")}
+            error={fieldErrors.name}
+          />
 
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Firm email" type="email" value={form.email} onChange={update("email")} />
-            <Input label="Firm phone" value={form.phone} onChange={update("phone")} />
+            <Input
+              label="Firm email"
+              type="email"
+              value={form.email}
+              onChange={update("email")}
+              onBlur={handleBlur("email")}
+              error={fieldErrors.email}
+            />
+            <Input
+              label="Firm phone"
+              value={form.phone}
+              onChange={update("phone")}
+              onBlur={handleBlur("phone")}
+              error={fieldErrors.phone}
+              placeholder="10-digit mobile number"
+              inputMode="numeric"
+              maxLength={10}
+            />
           </div>
 
           <div className="border-t border-border pt-4">
@@ -601,6 +727,8 @@ export default function CaFirmsPage() {
                   required
                   value={form.constitutionType}
                   onChange={update("constitutionType")}
+                  onBlur={handleBlur("constitutionType")}
+                  error={fieldErrors.constitutionType}
                 >
                   <option value="" disabled>
                     Select type
@@ -615,10 +743,20 @@ export default function CaFirmsPage() {
                   label="Firm PAN"
                   value={form.pan}
                   onChange={update("pan")}
+                  onBlur={handleBlur("pan")}
+                  error={fieldErrors.pan}
                   placeholder="ABCDE1234F"
                   maxLength={10}
                 />
-                <Input label="GSTIN" value={form.gstin} onChange={update("gstin")} placeholder="Optional" />
+                <Input
+                  label="GSTIN"
+                  value={form.gstin}
+                  onChange={update("gstin")}
+                  onBlur={handleBlur("gstin")}
+                  error={fieldErrors.gstin}
+                  placeholder="22ABCDE1234F1Z5"
+                  maxLength={15}
+                />
               </div>
             </div>
           </div>
@@ -642,12 +780,21 @@ export default function CaFirmsPage() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">CA Firm Admin</p>
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Admin name" required value={form.adminName} onChange={update("adminName")} />
+                <Input
+                  label="Admin name"
+                  required
+                  value={form.adminName}
+                  onChange={update("adminName")}
+                  onBlur={handleBlur("adminName")}
+                  error={fieldErrors.adminName}
+                />
                 <Select
                   label="Designation"
                   required
                   value={form.adminDesignation}
                   onChange={update("adminDesignation")}
+                  onBlur={handleBlur("adminDesignation")}
+                  error={fieldErrors.adminDesignation}
                 >
                   <option value="" disabled>
                     Select designation
@@ -665,6 +812,8 @@ export default function CaFirmsPage() {
                   required
                   value={form.adminEmail}
                   onChange={update("adminEmail")}
+                  onBlur={handleBlur("adminEmail")}
+                  error={fieldErrors.adminEmail}
                 />
                 <Input
                   label="ICAI membership no."

@@ -148,6 +148,12 @@ import OverrideBalance from "@/pages/HRMS/Admin/LeaveManagement/OverrideBalance"
 import ImportExportData from "@/pages/HRMS/Admin/DataManagement/ImportExportData";
 import HardDelete from "@/pages/HRMS/Admin/DataManagement/HardDelete";
 import BillingDashboard from "@/pages/HRMS/Admin/SystemConfigration/BillingDashboard";
+import TrainingModules from "@/pages/HRMS/Admin/Training/TrainingModules";
+import Trainees from "@/pages/HRMS/Admin/Training/Trainees";
+import TraineeDetails from "@/pages/HRMS/Admin/Training/TraineeDetails";
+import TraineeDashboard from "@/pages/HRMS/Training/TraineeDashboard";
+import ModulePlayer from "@/pages/HRMS/Training/ModulePlayer";
+import QuizRunner from "@/pages/HRMS/Training/QuizRunner";
 
 function ProtectedRoute({
   children,
@@ -200,6 +206,10 @@ function RootRoute() {
     return <LandingPage />;
   }
 
+  if (user.isTrainee) {
+    return <Navigate to="/hrms/training" replace />;
+  }
+
   // Redirect to user's role-based dashboard
   const roleRouteMap: { [key: string]: string } = {
     superadmin: "/hrms/SuperAdmin/dashboard",
@@ -227,6 +237,10 @@ function HRMSRootRoute() {
 
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
+
+  if (user.isTrainee) {
+    return <Navigate to="/hrms/training" replace />;
+  }
 
   if (user.role === "superadmin" || user.role === "super-admin" || user.role === "hr-admin") {
     return <Navigate to="/hrms/SuperAdmin/dashboard" replace />;
@@ -376,8 +390,10 @@ export default function AppRouter() {
           <Route path="SuperAdmin/data-management/import-export" element={<ImportExportData />} />
           <Route path="SuperAdmin/data-management/hard-delete" element={<HardDelete />} />
           <Route path="SuperAdmin/billing" element={<BillingDashboard />} />
-          {/* Not built yet — placeholder so the Training/Policies sidebar entries aren't dead links */}
-          <Route path="SuperAdmin/training/overview" element={<ComingSoon title="Training Overview" />} />
+          <Route path="SuperAdmin/training/modules" element={<TrainingModules />} />
+          <Route path="SuperAdmin/training/trainees" element={<Trainees />} />
+          <Route path="SuperAdmin/training/trainees/:id" element={<TraineeDetails />} />
+          {/* Not built yet — placeholder so the Policies sidebar entries aren't dead links */}
           <Route path="SuperAdmin/training/posh" element={<ComingSoon title="POSH Training" />} />
           <Route path="SuperAdmin/training/others" element={<ComingSoon title="Other Training" />} />
           <Route path="SuperAdmin/policies/medical" element={<ComingSoon title="Medical Policy" />} />
@@ -640,6 +656,9 @@ export default function AppRouter() {
           <Route path="admin/data-management/import-export" element={<ImportExportData />} />
           <Route path="admin/data-management/hard-delete" element={<HardDelete />} />
           <Route path="admin/billing" element={<BillingDashboard />} />
+          <Route path="admin/training/modules" element={<TrainingModules />} />
+          <Route path="admin/training/trainees" element={<Trainees />} />
+          <Route path="admin/training/trainees/:id" element={<TraineeDetails />} />
           <Route
             path="admin/onboarding/workstation"
             element={<WorkstationDeskAllocation />}
@@ -697,6 +716,11 @@ export default function AppRouter() {
           <Route path="auditor/leave-encashment" element={<AuditorLeaveEncashment />} />
           <Route path="auditor/leave-types" element={<AuditorLeaveTypes />} />
           <Route path="auditor/dashboard" element={<AuditorDashboard />} />
+
+          {/* TRAINING (shared by every role — RoleBasedLayout routes any user with isTrainee=true here regardless of their underlying role) */}
+          <Route path="training" element={<TraineeDashboard />} />
+          <Route path="training/module/:moduleId" element={<ModulePlayer />} />
+          <Route path="training/module/:moduleId/test" element={<QuizRunner />} />
 
           {/* SELF SERVICE (shared by Manager / Finance / IT-Admin / Auditor — own profile, attendance, leave, payroll, documents, requests) */}
           <Route path="self-service/profile" element={<PersonalInformation />} />

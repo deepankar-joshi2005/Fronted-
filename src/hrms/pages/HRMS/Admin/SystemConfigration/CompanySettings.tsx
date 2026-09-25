@@ -17,6 +17,7 @@ import {
 import { toast } from "../../Alert/Toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { isValidEmail, getPhoneNumberError, getGstinError } from "@/utils/validation";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 const IMG_BASE = API_BASE.replace("/api", "");
@@ -83,18 +84,26 @@ function EditField({
   name,
   value,
   onChange,
+  onBlur,
   type = "text",
   required,
+  error,
 }: {
   label: string;
   name: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   type?: string;
   required?: boolean;
+  error?: string;
 }) {
-  const base =
-    "mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]";
+  const base = cn(
+    "mt-1 w-full rounded-lg border bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:ring-1",
+    error
+      ? "border-[var(--status-critical)] focus:border-[var(--status-critical)] focus:ring-[var(--status-critical)]"
+      : "border-[var(--border)] focus:border-[var(--primary)] focus:ring-[var(--primary)]"
+  );
   return (
     <div>
       <label className="text-xs font-medium text-[var(--muted-foreground)]">
@@ -102,10 +111,11 @@ function EditField({
         {required && <span className="ml-0.5 text-[var(--status-critical)]">*</span>}
       </label>
       {type === "textarea" ? (
-        <textarea name={name} value={value} onChange={onChange} rows={3} className={cn(base, "resize-none")} />
+        <textarea name={name} value={value} onChange={onChange} onBlur={onBlur} rows={3} className={cn(base, "resize-none")} />
       ) : (
-        <input type={type} name={name} value={value} onChange={onChange} className={base} />
+        <input type={type} name={name} value={value} onChange={onChange} onBlur={onBlur} className={base} />
       )}
+      {error && <p className="mt-1 text-xs text-[var(--status-critical)]">{error}</p>}
     </div>
   );
 }
@@ -121,6 +131,7 @@ const CompanySettings = () => {
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState<Partial<CompanyData>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -159,6 +170,7 @@ const CompanySettings = () => {
     setLogoPreview(null);
     setStampFile(null);
     setStampPreview(null);
+    setFieldErrors({});
     setEditing(true);
   };
 
@@ -168,10 +180,28 @@ const CompanySettings = () => {
     setLogoPreview(null);
     setStampFile(null);
     setStampPreview(null);
+    setFieldErrors({});
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const handleFieldBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    let error = "";
+    if (name === "phone") {
+      error = getPhoneNumberError(value) || "";
+    } else if (name === "email") {
+      error = value && !isValidEmail(value) ? "Enter a valid email address" : "";
+    } else if (name === "gstNo") {
+      error = getGstinError(value) || "";
+    }
+    setFieldErrors((prev) => ({ ...prev, [name]: error }));
   };
 
   const handleLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,6 +220,18 @@ const CompanySettings = () => {
 
   const handleSave = async () => {
     if (!company) return;
+
+    const newErrors: Record<string, string> = {
+      phone: getPhoneNumberError(form.phone || "") || "",
+      email: form.email && !isValidEmail(form.email) ? "Enter a valid email address" : "",
+      gstNo: getGstinError(form.gstNo || "") || "",
+    };
+    if (Object.values(newErrors).some(Boolean)) {
+      setFieldErrors(newErrors);
+      toast({ type: "error", title: "Invalid Details", message: "Please fix the highlighted fields before saving." });
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = { ...form };
@@ -348,8 +390,26 @@ const CompanySettings = () => {
         <SectionCard icon={Phone} tone="var(--primary)" title="Contact Information">
           {editing ? (
             <div className="space-y-3">
-              <EditField label="Phone" name="phone" value={form.phone || ""} onChange={handleChange} required />
-              <EditField label="Email" name="email" type="email" value={form.email || ""} onChange={handleChange} required />
+              <EditField
+                label="Phone"
+                name="phone"
+                type="tel"
+                value={form.phone || ""}
+                onChange={handleChange}
+                onBlur={handleFieldBlur}
+                required
+                error={fieldErrors.phone}
+              />
+              <EditField
+                label="Email"
+                name="email"
+                type="email"
+                value={form.email || ""}
+                onChange={handleChange}
+                onBlur={handleFieldBlur}
+                required
+                error={fieldErrors.email}
+              />
               <EditField label="Website" name="website" value={form.website || ""} onChange={handleChange} />
             </div>
           ) : (
@@ -385,7 +445,14 @@ const CompanySettings = () => {
       {/* LEGAL INFORMATION */}
       <SectionCard icon={FileText} tone="#7C3AED" title="Legal Information">
         {editing ? (
-          <EditField label="GST Number" name="gstNo" value={form.gstNo || ""} onChange={handleChange} />
+          <EditField
+            label="GST Number"
+            name="gstNo"
+            value={form.gstNo || ""}
+            onChange={handleChange}
+            onBlur={handleFieldBlur}
+            error={fieldErrors.gstNo}
+          />
         ) : (
           <InfoRow label="GST Number" value={company.gstNo} />
         )}

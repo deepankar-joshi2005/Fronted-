@@ -942,6 +942,9 @@ export default function ClientSalaryStructurePage() {
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState("");
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   async function loadClient() {
     if (!clientId) return;
@@ -964,6 +967,7 @@ export default function ClientSalaryStructurePage() {
       setRun(data.run || null);
       setCostCenterInput(data.data?.[0]?.costCenter || "");
       setJustSaved(false);
+      setSelectedRowIds([]);
     } finally {
       setLoading(false);
     }
@@ -998,6 +1002,22 @@ export default function ClientSalaryStructurePage() {
     }
   }
 
+  async function handleDeleteSelected() {
+    setDeleting(true);
+    setError("");
+    try {
+      const employeeIds = rows.filter((r) => selectedRowIds.includes(r._id)).map((r) => r.clientEmployeeId);
+      await payrollApi.deleteStructureRows(clientId!, month, employeeIds);
+      setDeleteConfirmOpen(false);
+      await loadStructure(month);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Could not remove the selected row(s)");
+      setDeleteConfirmOpen(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function handleSaveStructure() {
     setSaving(true);
     setError("");
@@ -1020,6 +1040,10 @@ export default function ClientSalaryStructurePage() {
   // Employer PF + Employer ESI doesn't add back up to it (see ctcMismatch,
   // computed server-side in applyPercentagesToStructure).
   const mismatchedRows = rows.filter((r) => r.ctcMismatch);
+  // Once saved, payroll may already be generated off these rows — deleting
+  // them would leave that stale, so removal is only allowed pre-save (see
+  // deleteStructureRows on the backend, which enforces this too).
+  const canDeleteRows = !run?.structureSaved;
 
   const steps = [
     { label: "Import Excel for this month", done: rows.length > 0 },
@@ -1257,16 +1281,24 @@ export default function ClientSalaryStructurePage() {
       {mismatchedRows.length > 0 && (
         <div className="rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger">
           <strong>CTC mismatch for {mismatchedRows.length} employee(s):</strong> Gross + Employer PF + Employer ESI
-          should equal CTC. Please check and update Structure Setting for the row(s) highlighted red below —
+          must not exceed CTC. Please check and update Structure Setting for the row(s) highlighted red below —
           the structure can't be saved until this is fixed.
         </div>
       )}
 
       <Card className="p-4 sm:p-5">
-        <div className="mb-4 flex items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <Users size={16} className="text-text-muted" />
           <h2 className="text-lg font-semibold text-heading">Employees & salary structure</h2>
           <Badge variant="neutral">{rows.length}</Badge>
+          {canDeleteRows && selectedRowIds.length > 0 && (
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-sm text-text-muted">{selectedRowIds.length} selected</span>
+              <Button variant="danger" size="sm" onClick={() => setDeleteConfirmOpen(true)}>
+                <Trash2 size={14} /> Delete selected
+              </Button>
+            </div>
+          )}
         </div>
         {rows.length === 0 ? (
           <EmptyState
@@ -1281,12 +1313,17 @@ export default function ClientSalaryStructurePage() {
             keyField="_id"
             onReorderColumns={handleReorderColumns}
             rowClassName={(row: any) => (row.ctcMismatch ? "bg-danger-bg" : "")}
+            selectedKeys={canDeleteRows ? selectedRowIds : undefined}
+            onSelectionChange={canDeleteRows ? (keys) => setSelectedRowIds(keys as string[]) : undefined}
           />
         )}
       </Card>
 
       {rows.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setUploadOpen(true)}>
+            <Upload size={15} /> Import again
+          </Button>
           <Button
             variant="brand"
             onClick={() => setConfirmSaveOpen(true)}
@@ -1354,6 +1391,28 @@ export default function ClientSalaryStructurePage() {
           loadStructure(month);
         }}
       />
+
+      <Modal
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        title="Remove selected employee(s)?"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDeleteSelected} loading={deleting}>
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-text-muted">
+          This removes {selectedRowIds.length} employee{selectedRowIds.length === 1 ? "" : "s"} from {monthLabel(month)}'s
+          salary structure. Their employee record is untouched — you can re-import them for this month later. This cannot
+          be undone.
+        </p>
+      </Modal>
 
       <Modal
         open={confirmSaveOpen}

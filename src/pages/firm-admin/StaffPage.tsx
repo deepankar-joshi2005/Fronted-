@@ -9,8 +9,13 @@ import Badge from "../../components/ui/Badge.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import { sanitizePhone, validatePhone, validateEmail } from "../../utils/validators.js";
 
 const INITIAL_FORM = { name: "", email: "", phone: "", designation: "", icaiMembershipNo: "", password: "" };
+
+const SANITIZERS = {
+  phone: sanitizePhone,
+};
 
 function TempPasswordModal({ title, email, name, tempPassword, onClose }) {
   const [copied, setCopied] = useState(false);
@@ -58,15 +63,43 @@ function EditStaffModal({ staff, onClose, onSaved }) {
     icaiMembershipNo: staff.icaiMembershipNo || "",
   });
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
+  const VALIDATORS = {
+    email: (v) => validateEmail(v, true),
+    phone: (v) => validatePhone(v, false),
+  };
+
   function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (e) => {
+      const raw = e.target.value;
+      const value = SANITIZERS[field] ? SANITIZERS[field](raw) : raw;
+      setForm((f) => ({ ...f, [field]: value }));
+      setFieldErrors((fe) => (field in fe ? { ...fe, [field]: VALIDATORS[field] ? VALIDATORS[field](value) : "" } : fe));
+    };
+  }
+
+  function handleBlur(field) {
+    return () => {
+      if (!VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: VALIDATORS[field](form[field] || "") }));
+    };
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    const errors = {};
+    for (const field of Object.keys(VALIDATORS)) {
+      const msg = VALIDATORS[field](form[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields");
+      return;
+    }
     setSubmitting(true);
     try {
       await staffApi.updateStaff(staff.id, form);
@@ -106,8 +139,25 @@ function EditStaffModal({ staff, onClose, onSaved }) {
           <Input label="Designation" value={form.designation} onChange={update("designation")} placeholder="e.g. Accountant" />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Email" type="email" required value={form.email} onChange={update("email")} />
-          <Input label="Phone" value={form.phone} onChange={update("phone")} />
+          <Input
+            label="Email"
+            type="email"
+            required
+            value={form.email}
+            onChange={update("email")}
+            onBlur={handleBlur("email")}
+            error={fieldErrors.email}
+          />
+          <Input
+            label="Phone"
+            value={form.phone}
+            onChange={update("phone")}
+            onBlur={handleBlur("phone")}
+            error={fieldErrors.phone}
+            placeholder="10-digit mobile number"
+            inputMode="numeric"
+            maxLength={10}
+          />
         </div>
         <Input
           label="ICAI membership no."
@@ -184,10 +234,16 @@ export default function StaffPage() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [createdResult, setCreatedResult] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [resetTarget, setResetTarget] = useState(null);
   const [resetTempPassword, setResetTempPassword] = useState(null);
+
+  const VALIDATORS = {
+    email: (v) => validateEmail(v, true),
+    phone: (v) => validatePhone(v, false),
+  };
 
   async function load(searchTerm = search) {
     setLoading(true);
@@ -208,12 +264,34 @@ export default function StaffPage() {
   }, []);
 
   function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (e) => {
+      const raw = e.target.value;
+      const value = SANITIZERS[field] ? SANITIZERS[field](raw) : raw;
+      setForm((f) => ({ ...f, [field]: value }));
+      setFieldErrors((fe) => (field in fe ? { ...fe, [field]: VALIDATORS[field] ? VALIDATORS[field](value) : "" } : fe));
+    };
+  }
+
+  function handleBlur(field) {
+    return () => {
+      if (!VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: VALIDATORS[field](form[field] || "") }));
+    };
   }
 
   async function handleCreate(e) {
     e.preventDefault();
     setError("");
+    const errors = {};
+    for (const field of Object.keys(VALIDATORS)) {
+      const msg = VALIDATORS[field](form[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields");
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = { ...form };
@@ -221,6 +299,7 @@ export default function StaffPage() {
       const { data } = await staffApi.createStaff(payload);
       setModalOpen(false);
       setForm(INITIAL_FORM);
+      setFieldErrors({});
       setCreatedResult(data.data);
       load();
     } catch (err) {
@@ -356,8 +435,25 @@ export default function StaffPage() {
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Email" type="email" required value={form.email} onChange={update("email")} />
-            <Input label="Phone" value={form.phone} onChange={update("phone")} />
+            <Input
+              label="Email"
+              type="email"
+              required
+              value={form.email}
+              onChange={update("email")}
+              onBlur={handleBlur("email")}
+              error={fieldErrors.email}
+            />
+            <Input
+              label="Phone"
+              value={form.phone}
+              onChange={update("phone")}
+              onBlur={handleBlur("phone")}
+              error={fieldErrors.phone}
+              placeholder="10-digit mobile number"
+              inputMode="numeric"
+              maxLength={10}
+            />
           </div>
           <Input
             label="ICAI membership no."

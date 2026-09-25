@@ -20,6 +20,7 @@ import {
 import * as financeTrackerApi from "../../../api/financeTracker.api";
 import { useAuth } from "../../../hooks/useAuth";
 import { CHART_COLORS } from "../../../utils/chartColors.js";
+import { sanitizePhone, sanitizeGstin, validatePhone, validateGstin, validateEmail } from "../../../utils/validators.js";
 import Card from "../../../components/ui/Card.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import Badge from "../../../components/ui/Badge.jsx";
@@ -29,6 +30,15 @@ import Spinner from "../../../components/ui/Spinner.jsx";
 import ChartTooltip from "../../../components/ui/ChartTooltip.jsx";
 
 const STEPS = ["Personal", "Professional & Income", "Current Loans", "Monthly Expenses", "Savings"];
+const CONTACT_SANITIZERS: Record<string, (v: string) => string> = {
+  phone: sanitizePhone,
+  gstin: sanitizeGstin,
+};
+const CONTACT_VALIDATORS: Record<string, (v: string) => string> = {
+  email: (v) => validateEmail(v, false),
+  phone: (v) => validatePhone(v, false),
+  gstin: (v) => validateGstin(v, false),
+};
 const HEALTH_VARIANT: Record<string, string> = { Excellent: "success", Good: "brand", Moderate: "warning", Stressed: "danger" };
 const EXPENSE_FIELDS: [string, string][] = [
   ["rent", "Rent"],
@@ -176,6 +186,7 @@ export default function ClientFinanceWorkspacePage() {
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [annualRate, setAnnualRate] = useState("10.5");
   const [tenureMonths, setTenureMonths] = useState("60");
@@ -237,7 +248,36 @@ export default function ClientFinanceWorkspacePage() {
     setForm(fromProfile(profile));
     setStep(0);
     setError("");
+    setFieldErrors({});
     setMode("wizard");
+  }
+
+  function updateContactField(field: string, raw: string) {
+    const sanitizer = CONTACT_SANITIZERS[field];
+    const value = sanitizer ? sanitizer(raw) : raw;
+    setForm((f) => ({ ...f, [field]: value }));
+    setFieldErrors((fe) =>
+      field in fe ? { ...fe, [field]: CONTACT_VALIDATORS[field] ? CONTACT_VALIDATORS[field](value) : "" } : fe
+    );
+  }
+  function handleContactBlur(field: string) {
+    return () => {
+      if (!CONTACT_VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: CONTACT_VALIDATORS[field]((form as any)[field] || "") }));
+    };
+  }
+  function validateContactStep(): boolean {
+    const errors: Record<string, string> = {};
+    for (const field of Object.keys(CONTACT_VALIDATORS)) {
+      const msg = CONTACT_VALIDATORS[field]((form as any)[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields");
+      return false;
+    }
+    return true;
   }
 
   function setLoan(key: "homeLoan" | "carLoan" | "personalLoan", patch: any) {
@@ -261,6 +301,9 @@ export default function ClientFinanceWorkspacePage() {
       setError("Name is required");
       return;
     }
+    if (step === 0 && !validateContactStep()) {
+      return;
+    }
     if (step === 1 && form.monthlyIncome === "") {
       setError("Monthly income is required");
       return;
@@ -272,6 +315,10 @@ export default function ClientFinanceWorkspacePage() {
   async function handleSave() {
     if (!form.name.trim()) {
       setError("Name is required");
+      setStep(0);
+      return;
+    }
+    if (!validateContactStep()) {
       setStep(0);
       return;
     }
@@ -348,9 +395,33 @@ export default function ClientFinanceWorkspacePage() {
           {step === 0 && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input label="Full Name" required value={form.name} onChange={(e: any) => setForm((f) => ({ ...f, name: e.target.value }))} />
-              <Input label="Email" type="email" value={form.email} onChange={(e: any) => setForm((f) => ({ ...f, email: e.target.value }))} />
-              <Input label="Phone" value={form.phone} onChange={(e: any) => setForm((f) => ({ ...f, phone: e.target.value }))} />
-              <Input label="GSTIN" value={form.gstin} onChange={(e: any) => setForm((f) => ({ ...f, gstin: e.target.value }))} />
+              <Input
+                label="Email"
+                type="email"
+                value={form.email}
+                onChange={(e: any) => updateContactField("email", e.target.value)}
+                onBlur={handleContactBlur("email")}
+                error={fieldErrors.email}
+              />
+              <Input
+                label="Phone"
+                value={form.phone}
+                onChange={(e: any) => updateContactField("phone", e.target.value)}
+                onBlur={handleContactBlur("phone")}
+                error={fieldErrors.phone}
+                placeholder="10-digit mobile number"
+                inputMode="numeric"
+                maxLength={10}
+              />
+              <Input
+                label="GSTIN"
+                value={form.gstin}
+                onChange={(e: any) => updateContactField("gstin", e.target.value)}
+                onBlur={handleContactBlur("gstin")}
+                error={fieldErrors.gstin}
+                placeholder="22ABCDE1234F1Z5"
+                maxLength={15}
+              />
             </div>
           )}
 

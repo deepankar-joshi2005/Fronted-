@@ -22,6 +22,11 @@ interface TableProps {
   // Optional — extra classes appended to a row's <tr>, e.g. to highlight rows
   // that fail a validation check. Omit for the default, unstyled row.
   rowClassName?: (row: any) => string;
+  // Optional — provide both together to turn on a leading checkbox column
+  // with select-all/indeterminate in the header. Selection state lives with
+  // the caller. Omit both for the default, unchanged behavior.
+  selectedKeys?: (string | number)[];
+  onSelectionChange?: (keys: (string | number)[]) => void;
 }
 
 const ALIGN_CLASS = { left: "text-left", center: "text-center", right: "text-right" };
@@ -31,11 +36,41 @@ const ALIGN_CLASS = { left: "text-left", center: "text-center", right: "text-rig
 const AUTO_SCROLL_EDGE = 56;
 const AUTO_SCROLL_SPEED = 14;
 
-export default function Table({ columns, data, keyField = "id", onReorderColumns, rowClassName }: TableProps) {
+export default function Table({
+  columns,
+  data,
+  keyField = "id",
+  onReorderColumns,
+  rowClassName,
+  selectedKeys,
+  onSelectionChange,
+}: TableProps) {
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [scrollDirection, setScrollDirection] = useState<"left" | "right" | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  const selectable = !!onSelectionChange;
+  const selectedSet = new Set(selectedKeys || []);
+  const allSelected = selectable && data.length > 0 && data.every((row) => selectedSet.has(row[keyField]));
+  const someSelected = selectable && !allSelected && data.some((row) => selectedSet.has(row[keyField]));
+
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someSelected;
+  }, [someSelected]);
+
+  function toggleAll() {
+    if (!onSelectionChange) return;
+    onSelectionChange(allSelected ? [] : data.map((row) => row[keyField]));
+  }
+  function toggleRow(key: string | number) {
+    if (!onSelectionChange) return;
+    const next = new Set(selectedSet);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    onSelectionChange(Array.from(next));
+  }
 
   // Runs continuously (not just on dragover ticks) so holding near an edge
   // keeps scrolling even if the pointer stops moving — a plain onDragOver
@@ -94,6 +129,18 @@ export default function Table({ columns, data, keyField = "id", onReorderColumns
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-border bg-surface-2">
+            {selectable && (
+              <th className="w-10 px-4 py-3">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  aria-label="Select all rows"
+                  className="h-4 w-4 accent-brand"
+                />
+              </th>
+            )}
             {columns.map((col) => {
               const reorderable = !!onReorderColumns && !col.noReorder;
               return (
@@ -137,6 +184,17 @@ export default function Table({ columns, data, keyField = "id", onReorderColumns
               key={row[keyField]}
               className={`border-b border-border last:border-0 hover:bg-surface-2/60 ${rowClassName ? rowClassName(row) : ""}`}
             >
+              {selectable && (
+                <td className="w-10 px-4 py-3 align-middle">
+                  <input
+                    type="checkbox"
+                    checked={selectedSet.has(row[keyField])}
+                    onChange={() => toggleRow(row[keyField])}
+                    aria-label="Select row"
+                    className="h-4 w-4 accent-brand"
+                  />
+                </td>
+              )}
               {columns.map((col) => (
                 <td key={col.key} className={`whitespace-nowrap px-4 py-3 align-middle text-text ${ALIGN_CLASS[col.align || "left"]}`}>
                   {col.render ? col.render(row) : row[col.key]}

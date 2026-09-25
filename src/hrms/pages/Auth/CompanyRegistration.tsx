@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import axiosInstance from "@/api/axiosInstance";
 import { toast } from "sonner";
+import { isValidEmail, getGstinError, getPhoneNumberError } from "@/utils/validation";
 
 /* ── Reusable styled input ─────────────────────────────── */
 function PremiumInput({
@@ -31,28 +32,35 @@ function PremiumInput({
   placeholder,
   value,
   onChange,
+  onBlur,
   required,
   icon,
   className = "",
   uppercase = false,
+  error,
 }: {
   id: string;
   type?: string;
   placeholder?: string;
   value: string | number;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   required?: boolean;
   icon?: React.ReactNode;
   className?: string;
   uppercase?: boolean;
+  error?: string | null;
 }) {
+  const errorBorderColor = "#ef4444";
+  const defaultBorderColor = "color-mix(in srgb, var(--primary) 15%, var(--border))";
+
   const baseStyle: CSSProperties = {
     width: "100%",
     height: "44px",
     paddingLeft: icon ? "42px" : "14px",
     paddingRight: "14px",
     background: "color-mix(in srgb, var(--primary) 4%, var(--background))",
-    border: "1.5px solid color-mix(in srgb, var(--primary) 15%, var(--border))",
+    border: `1.5px solid ${error ? errorBorderColor : defaultBorderColor}`,
     borderRadius: "0.75rem",
     fontSize: "0.875rem",
     color: "var(--foreground)",
@@ -80,16 +88,24 @@ function PremiumInput({
         required={required}
         style={baseStyle}
         onFocus={(e) => {
-          e.target.style.borderColor = "var(--primary)";
-          e.target.style.boxShadow = "0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent)";
+          e.target.style.borderColor = error ? errorBorderColor : "var(--primary)";
+          e.target.style.boxShadow = `0 0 0 3px ${
+            error ? "rgba(239, 68, 68, 0.14)" : "color-mix(in srgb, var(--primary) 14%, transparent)"
+          }`;
           e.target.style.background = "color-mix(in srgb, var(--primary) 6%, var(--background))";
         }}
         onBlur={(e) => {
-          e.target.style.borderColor = "color-mix(in srgb, var(--primary) 15%, var(--border))";
+          e.target.style.borderColor = error ? errorBorderColor : defaultBorderColor;
           e.target.style.boxShadow = "none";
           e.target.style.background = "color-mix(in srgb, var(--primary) 4%, var(--background))";
+          onBlur?.(e);
         }}
       />
+      {error && (
+        <p className="mt-1 text-xs" style={{ color: errorBorderColor }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -110,6 +126,7 @@ export default function CompanyRegistration() {
   const [step, setStep] = useState(1);
   const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ gstNo?: string; adminEmail?: string; adminPhone?: string }>({});
   const [formData, setFormData] = useState({
     companyName: "",
     logo: "",
@@ -135,6 +152,25 @@ export default function CompanyRegistration() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: id === "employeeCount" ? parseInt(value) || 0 : value }));
+    if ((id === "gstNo" || id === "adminEmail" || id === "adminPhone") && fieldErrors[id as keyof typeof fieldErrors]) {
+      setFieldErrors((prev) => ({ ...prev, [id]: undefined }));
+    }
+  };
+
+  const validateGstField = (value: string) => {
+    setFieldErrors((prev) => ({ ...prev, gstNo: getGstinError(value) || undefined }));
+  };
+
+  const validateAdminEmailField = (value: string) => {
+    const trimmed = value.trim();
+    setFieldErrors((prev) => ({
+      ...prev,
+      adminEmail: trimmed && !isValidEmail(trimmed) ? "Enter a valid email address" : undefined,
+    }));
+  };
+
+  const validateAdminPhoneField = (value: string) => {
+    setFieldErrors((prev) => ({ ...prev, adminPhone: getPhoneNumberError(value) || undefined }));
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -161,6 +197,12 @@ export default function CompanyRegistration() {
         toast.error("Required fields missing", { description: "Please provide Company Name, Upload Logo, and Industry." });
         return;
       }
+      const gstError = getGstinError(formData.gstNo);
+      if (gstError) {
+        setFieldErrors((prev) => ({ ...prev, gstNo: gstError }));
+        toast.error("Invalid GST Number", { description: gstError });
+        return;
+      }
     } else if (step === 2) {
       if (!formData.city || !formData.state || !formData.address) {
         toast.error("Location missing", { description: "Please provide City, State, and Address." });
@@ -169,6 +211,17 @@ export default function CompanyRegistration() {
     } else if (step === 3) {
       if (!formData.adminName || !formData.adminEmail || !formData.adminPassword || !formData.adminPhone) {
         toast.error("Admin details missing", { description: "Please complete the admin account details." });
+        return;
+      }
+      if (!isValidEmail(formData.adminEmail)) {
+        setFieldErrors((prev) => ({ ...prev, adminEmail: "Enter a valid email address" }));
+        toast.error("Invalid email", { description: "Please enter a valid corporate email address." });
+        return;
+      }
+      const phoneError = getPhoneNumberError(formData.adminPhone);
+      if (phoneError) {
+        setFieldErrors((prev) => ({ ...prev, adminPhone: phoneError }));
+        toast.error("Invalid phone number", { description: phoneError });
         return;
       }
     }
@@ -415,11 +468,13 @@ export default function CompanyRegistration() {
                           <FieldLabel>GST Number</FieldLabel>
                           <PremiumInput
                             id="gstNo"
-                            placeholder="27XXXX"
+                            placeholder="22ABCDE1234F1Z5"
                             value={formData.gstNo}
                             onChange={handleChange}
+                            onBlur={(e) => validateGstField(e.target.value)}
                             icon={<FileText className="w-4 h-4" />}
                             uppercase
+                            error={fieldErrors.gstNo}
                           />
                         </div>
                       </div>
@@ -505,7 +560,17 @@ export default function CompanyRegistration() {
 
                       <div>
                         <FieldLabel>Corporate Email <span className="text-red-500">*</span></FieldLabel>
-                        <PremiumInput id="adminEmail" type="email" placeholder="admin@company.com" value={formData.adminEmail} onChange={handleChange} required icon={<Mail className="w-4 h-4" />} />
+                        <PremiumInput
+                          id="adminEmail"
+                          type="email"
+                          placeholder="admin@company.com"
+                          value={formData.adminEmail}
+                          onChange={handleChange}
+                          onBlur={(e) => validateAdminEmailField(e.target.value)}
+                          required
+                          icon={<Mail className="w-4 h-4" />}
+                          error={fieldErrors.adminEmail}
+                        />
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
@@ -515,7 +580,17 @@ export default function CompanyRegistration() {
                         </div>
                         <div>
                           <FieldLabel>Phone Number <span className="text-red-500">*</span></FieldLabel>
-                          <PremiumInput id="adminPhone" placeholder="+91 00000 00000" value={formData.adminPhone} onChange={handleChange} required icon={<Phone className="w-4 h-4" />} />
+                          <PremiumInput
+                            id="adminPhone"
+                            type="tel"
+                            placeholder="+91 00000 00000"
+                            value={formData.adminPhone}
+                            onChange={handleChange}
+                            onBlur={(e) => validateAdminPhoneField(e.target.value)}
+                            required
+                            icon={<Phone className="w-4 h-4" />}
+                            error={fieldErrors.adminPhone}
+                          />
                         </div>
                       </div>
                     </div>

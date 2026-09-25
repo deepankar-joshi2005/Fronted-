@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "../../Alert/Toast";
+import { isValidEmail, getPhoneNumberError } from "@/utils/validation";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
@@ -120,7 +121,14 @@ const ViewEditCandidateModal = ({ isOpen, onClose, onSuccess, candidate, mode }:
     let e: any = {};
     if (!form.name.trim()) e.name = "Name is required";
     if (!form.email.trim()) e.email = "Email is required";
+    else if (!isValidEmail(form.email)) e.email = "Enter a valid email address";
+
     if (!form.mobile.trim()) e.mobile = "Mobile number is required";
+    else {
+      const mobileError = getPhoneNumberError(form.mobile);
+      if (mobileError) e.mobile = mobileError;
+    }
+
     if (!form.jobId) e.jobId = "Please select a job";
     if (mode === "add" && !form.resume) e.resume = "Resume is required";
 
@@ -223,7 +231,16 @@ const ViewEditCandidateModal = ({ isOpen, onClose, onSuccess, candidate, mode }:
               type="email"
               disabled={disabled}
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, email: e.target.value });
+                setErrors((prev: any) => ({ ...prev, email: "" }));
+              }}
+              onBlur={(e) => {
+                const val = e.target.value.trim();
+                if (val && !isValidEmail(val)) {
+                  setErrors((prev: any) => ({ ...prev, email: "Enter a valid email address" }));
+                }
+              }}
               className={`w-full border px-3 py-2 rounded mt-1 text-sm ${
                 errors.email ? "border-red-500" : "border-gray-200"
               }`}
@@ -238,10 +255,19 @@ const ViewEditCandidateModal = ({ isOpen, onClose, onSuccess, candidate, mode }:
             Mobile Number <span className="text-red-500">*</span>
           </label>
           <input
-            type="text"
+            type="tel"
             disabled={disabled}
             value={form.mobile}
-            onChange={(e) => setForm({ ...form, mobile: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, mobile: e.target.value });
+              setErrors((prev: any) => ({ ...prev, mobile: "" }));
+            }}
+            onBlur={(e) => {
+              const mobileError = getPhoneNumberError(e.target.value);
+              if (mobileError) {
+                setErrors((prev: any) => ({ ...prev, mobile: mobileError }));
+              }
+            }}
             className={`w-full border px-3 py-2 rounded mt-1 text-sm ${
               errors.mobile ? "border-red-500" : "border-gray-200"
             }`}

@@ -4,23 +4,56 @@ import { useAuthStore } from "../../store/authStore.js";
 import { getRoleBasePath } from "../../config/roles.js";
 import Input from "../ui/Input.jsx";
 import Button from "../ui/Button.jsx";
+import { sanitizePhone, validatePhone, validateEmail } from "../../utils/validators.js";
 
 const INITIAL_FORM = { firmName: "", adminName: "", adminEmail: "", phone: "", password: "" };
+
+const SANITIZERS = {
+  phone: sanitizePhone,
+};
 
 export default function SignupForm() {
   const registerFirm = useAuthStore((s) => s.registerFirm);
   const navigate = useNavigate();
   const [form, setForm] = useState(INITIAL_FORM);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
+  const VALIDATORS = {
+    adminEmail: (v) => validateEmail(v, true),
+    phone: (v) => validatePhone(v, false),
+  };
+
   function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (e) => {
+      const raw = e.target.value;
+      const value = SANITIZERS[field] ? SANITIZERS[field](raw) : raw;
+      setForm((f) => ({ ...f, [field]: value }));
+      setFieldErrors((fe) => (field in fe ? { ...fe, [field]: VALIDATORS[field] ? VALIDATORS[field](value) : "" } : fe));
+    };
+  }
+
+  function handleBlur(field) {
+    return () => {
+      if (!VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: VALIDATORS[field](form[field] || "") }));
+    };
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    const errors = {};
+    for (const field of Object.keys(VALIDATORS)) {
+      const msg = VALIDATORS[field](form[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields");
+      return;
+    }
     setLoading(true);
     try {
       const user = await registerFirm(form);
@@ -63,6 +96,8 @@ export default function SignupForm() {
         required
         value={form.adminEmail}
         onChange={update("adminEmail")}
+        onBlur={handleBlur("adminEmail")}
+        error={fieldErrors.adminEmail}
         placeholder="you@firm.com"
       />
       <Input
@@ -70,7 +105,11 @@ export default function SignupForm() {
         name="phone"
         value={form.phone}
         onChange={update("phone")}
-        placeholder="+91 98765 43210"
+        onBlur={handleBlur("phone")}
+        error={fieldErrors.phone}
+        placeholder="10-digit mobile number"
+        inputMode="numeric"
+        maxLength={10}
       />
       <Input
         label="Password"

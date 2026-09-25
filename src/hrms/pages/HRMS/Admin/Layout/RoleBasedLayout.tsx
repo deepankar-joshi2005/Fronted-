@@ -9,11 +9,23 @@ import HRMSITAdminLayout from "./HRMSITAdminLayout";
 import HRMSAdminLayout from "./HRMSAdminLayout";
 import SuperAdminLayout from "../Layout";
 import HRMSAuditorLayout from "./HRMSAuditorLayout";
+import TrainingLayout from "../../Training/TrainingLayout";
 
 export default function RoleBasedLayout() {
   const { user } = useAuth();
 
   if (!user) return null;
+
+  // Trainees are confined to the Training area regardless of their underlying
+  // role until HR completes their onboarding (see userController.createUser
+  // and trainingManagementController.completeOnboarding on the backend).
+  if (user.isTrainee) {
+    return (
+      <TrainingLayout>
+        <Outlet />
+      </TrainingLayout>
+    );
+  }
 
   switch (user.role) {
     case "superadmin":

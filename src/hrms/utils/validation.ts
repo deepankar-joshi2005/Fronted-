@@ -83,7 +83,7 @@ export const formatPhoneNumber = (phoneNumber: string): string => {
 
 /**
  * Get phone number validation error message
- * 
+ *
  * @param phoneNumber - The phone number to validate
  * @returns string | null - Error message or null if valid
  */
@@ -94,6 +94,74 @@ export const getPhoneNumberError = (phoneNumber: string): string | null => {
 
   if (!isValidPhoneNumber(phoneNumber)) {
     return 'Please enter a valid 10-digit phone number (e.g., 9876543210 or +919876543210)';
+  }
+
+  return null;
+};
+
+/**
+ * Validates if a PAN (Permanent Account Number) is in a valid format
+ * Format: 5 letters, 4 digits, 1 letter (e.g., ABCDE1234F)
+ *
+ * @param pan - The PAN to validate
+ * @returns boolean - true if valid, false otherwise
+ */
+export const isValidPan = (pan: string): boolean => {
+  if (!pan || typeof pan !== 'string') {
+    return false;
+  }
+
+  const panPattern = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+  return panPattern.test(pan.trim().toUpperCase());
+};
+
+/**
+ * Validates if a GSTIN (Goods and Services Tax Identification Number) is in a valid format
+ * Format: 15 characters - 2 digit state code, 10 character PAN, 1 entity code, Z, 1 checksum
+ *
+ * @param gstin - The GSTIN to validate
+ * @returns boolean - true if valid, false otherwise
+ */
+export const isValidGstin = (gstin: string): boolean => {
+  if (!gstin || typeof gstin !== 'string') {
+    return false;
+  }
+
+  const gstinPattern = /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/;
+  return gstinPattern.test(gstin.trim().toUpperCase());
+};
+
+/**
+ * Get PAN validation error message
+ *
+ * @param pan - The PAN to validate
+ * @returns string | null - Error message or null if valid
+ */
+export const getPanError = (pan: string): string | null => {
+  if (!pan || pan.trim() === '') {
+    return null; // Empty is okay for optional fields
+  }
+
+  if (!isValidPan(pan)) {
+    return 'Enter a valid PAN (format: ABCDE1234F)';
+  }
+
+  return null;
+};
+
+/**
+ * Get GSTIN validation error message
+ *
+ * @param gstin - The GSTIN to validate
+ * @returns string | null - Error message or null if valid
+ */
+export const getGstinError = (gstin: string): string | null => {
+  if (!gstin || gstin.trim() === '') {
+    return null; // Empty is okay for optional fields
+  }
+
+  if (!isValidGstin(gstin)) {
+    return 'Enter a valid 15-character GSTIN (format: 22ABCDE1234F1Z5)';
   }
 
   return null;

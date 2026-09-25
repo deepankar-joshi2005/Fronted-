@@ -43,6 +43,11 @@ export const updateCostCenter = (businessClientId: string, month: string, costCe
 export const updateEmployeeStructure = (businessClientId: string, month: string, employeeId: string, payload: any) =>
   axiosClient.put(`${base(businessClientId)}/structure/${month}/employees/${employeeId}`, payload);
 
+// Bulk-removes imported rows for this month (e.g. rows imported by mistake) —
+// does not touch the ClientEmployee record itself, just this month's structure.
+export const deleteStructureRows = (businessClientId: string, month: string, employeeIds: string[]) =>
+  axiosClient.delete(`${base(businessClientId)}/structure/${month}/employees`, { data: { employeeIds } });
+
 // Per-employee Structure Setting overrides (mode/%/fixed) — only components
 // explicitly included become this employee's override; everything else keeps
 // following the client-wide Structure Setting.

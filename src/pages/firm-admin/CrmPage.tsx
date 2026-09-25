@@ -34,6 +34,7 @@ import Badge from "../../components/ui/Badge.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import { sanitizePhone, validatePhone, validateEmail } from "../../utils/validators.js";
 
 // Pipeline stages shown in the stepper — "lost" is a dead end, shown separately.
 const STATUS_ORDER = ["new", "contacted", "qualified", "converted"];
@@ -115,14 +116,6 @@ function formatDate(d) {
 function combineDateTime(dateStr, timeStr) {
   if (!dateStr) return "";
   return timeStr ? `${dateStr}T${timeStr}` : dateStr;
-}
-
-function req(label) {
-  return (
-    <>
-      {label} <span className="text-danger">*</span>
-    </>
-  );
 }
 
 function Field({ label, required, children }) {
@@ -248,14 +241,33 @@ function ServiceCheckboxes({ value, onChange }) {
 
 // ── Add / Edit Lead ─────────────────────────────────────────────────────────
 
+const CRM_SANITIZERS = {
+  phone: sanitizePhone,
+  alternatePhone: sanitizePhone,
+};
+
 function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSaved }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  const isBusinessType = BUSINESS_LEAD_TYPES.includes(form.leadType);
+
+  const VALIDATORS = {
+    name: (v) => (v.trim() ? "" : "Lead name is required"),
+    leadType: (v) => (v ? "" : "Select a lead type"),
+    phone: (v) => validatePhone(v, true),
+    alternatePhone: (v) => validatePhone(v, false),
+    email: (v) => validateEmail(v, false),
+    company: (v) => (isBusinessType && !v.trim() ? "Business / company name is required" : ""),
+    source: (v) => (v ? "" : "Select a lead source"),
+  };
 
   useEffect(() => {
     if (!open) return;
     setError("");
+    setFieldErrors({});
     if (editingLead) {
       setForm({
         name: editingLead.name || "",
@@ -281,13 +293,34 @@ function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSa
   }, [open, editingLead]);
 
   function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (e) => {
+      const raw = e.target.value;
+      const value = CRM_SANITIZERS[field] ? CRM_SANITIZERS[field](raw) : raw;
+      setForm((f) => ({ ...f, [field]: value }));
+      setFieldErrors((fe) => (field in fe ? { ...fe, [field]: VALIDATORS[field] ? VALIDATORS[field](value) : "" } : fe));
+    };
   }
-  const isBusinessType = BUSINESS_LEAD_TYPES.includes(form.leadType);
+
+  function handleBlur(field) {
+    return () => {
+      if (!VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: VALIDATORS[field](form[field] || "") }));
+    };
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    const errors = {};
+    for (const field of Object.keys(VALIDATORS)) {
+      const msg = VALIDATORS[field](form[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields");
+      return;
+    }
     if (form.interestedServices.length === 0) {
       setError("Select at least one service");
       return;
@@ -337,8 +370,22 @@ function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSa
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Lead / Person Details</p>
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
-              <Input label={req("Lead name")} required value={form.name} onChange={update("name")} />
-              <Select label={req("Lead type")} required value={form.leadType} onChange={update("leadType")}>
+              <Input
+                label="Lead name"
+                required
+                value={form.name}
+                onChange={update("name")}
+                onBlur={handleBlur("name")}
+                error={fieldErrors.name}
+              />
+              <Select
+                label="Lead type"
+                required
+                value={form.leadType}
+                onChange={update("leadType")}
+                onBlur={handleBlur("leadType")}
+                error={fieldErrors.leadType}
+              >
                 <option value="" disabled>
                   Select type
                 </option>
@@ -350,10 +397,35 @@ function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSa
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label={req("Mobile number")} required value={form.phone} onChange={update("phone")} />
-              <Input label="Alternate mobile" value={form.alternatePhone} onChange={update("alternatePhone")} />
+              <Input
+                label="Mobile number"
+                required
+                value={form.phone}
+                onChange={update("phone")}
+                onBlur={handleBlur("phone")}
+                error={fieldErrors.phone}
+                placeholder="10-digit mobile number"
+                inputMode="numeric"
+                maxLength={10}
+              />
+              <Input
+                label="Alternate mobile"
+                value={form.alternatePhone}
+                onChange={update("alternatePhone")}
+                onBlur={handleBlur("alternatePhone")}
+                error={fieldErrors.alternatePhone}
+                inputMode="numeric"
+                maxLength={10}
+              />
             </div>
-            <Input label="Email" type="email" value={form.email} onChange={update("email")} />
+            <Input
+              label="Email"
+              type="email"
+              value={form.email}
+              onChange={update("email")}
+              onBlur={handleBlur("email")}
+              error={fieldErrors.email}
+            />
           </div>
         </div>
 
@@ -362,10 +434,12 @@ function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSa
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
               <Input
-                label={isBusinessType ? req("Business / company name") : "Business / company name"}
+                label="Business / company name"
                 required={isBusinessType}
                 value={form.company}
                 onChange={update("company")}
+                onBlur={handleBlur("company")}
+                error={fieldErrors.company}
               />
               <Select label="Business type" value={form.businessType} onChange={update("businessType")}>
                 <option value="">Select type</option>
@@ -384,7 +458,7 @@ function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSa
         </div>
 
         <div className="border-t border-border pt-4">
-          <Field label={req("Services required")}>
+          <Field label="Services required" required>
             <ServiceCheckboxes value={form.interestedServices} onChange={(v) => setForm((f) => ({ ...f, interestedServices: v }))} />
           </Field>
         </div>
@@ -393,7 +467,14 @@ function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSa
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Source &amp; Assignment</p>
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
-              <Select label={req("Lead source")} required value={form.source} onChange={update("source")}>
+              <Select
+                label="Lead source"
+                required
+                value={form.source}
+                onChange={update("source")}
+                onBlur={handleBlur("source")}
+                error={fieldErrors.source}
+              >
                 <option value="" disabled>
                   Select source
                 </option>
@@ -575,8 +656,8 @@ function ScheduleFollowUpModal({ open, onClose, lead, onScheduled }) {
           ))}
         </Select>
         <div className="grid grid-cols-2 gap-4">
-          <Input label={req("Date")} type="date" required value={form.date} onChange={update("date")} />
-          <Input label={req("Time")} type="time" required value={form.time} onChange={update("time")} />
+          <Input label="Date" type="date" required value={form.date} onChange={update("date")} />
+          <Input label="Time" type="time" required value={form.time} onChange={update("time")} />
         </div>
         <Textarea label="Note (optional)" value={form.note} onChange={update("note")} placeholder="e.g. Explain GST filing package" />
       </form>
@@ -709,15 +790,26 @@ function DeleteLeadModal({ open, onClose, lead, onDeleted }) {
 function ProvisionModal({ lead, onClose, onDone }) {
   const [form, setForm] = useState({ adminName: lead.name, adminEmail: lead.email || "", adminPassword: "" });
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   function update(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
   }
 
+  function handleEmailBlur() {
+    setEmailError(validateEmail(form.adminEmail, true));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+    const emailMsg = validateEmail(form.adminEmail, true);
+    if (emailMsg) {
+      setEmailError(emailMsg);
+      setError("Please fix the highlighted fields");
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = { ...form, name: lead.name, email: lead.email, phone: lead.phone, leadId: lead._id };
@@ -756,7 +848,15 @@ function ProvisionModal({ lead, onClose, onDone }) {
           payroll) with an admin login. Client details are carried over from this record.
         </p>
         <Input label="Admin name" required value={form.adminName} onChange={update("adminName")} />
-        <Input label="Admin email" type="email" required value={form.adminEmail} onChange={update("adminEmail")} />
+        <Input
+          label="Admin email"
+          type="email"
+          required
+          value={form.adminEmail}
+          onChange={update("adminEmail")}
+          onBlur={handleEmailBlur}
+          error={emailError}
+        />
         <Input
           label="Admin password"
           type="text"

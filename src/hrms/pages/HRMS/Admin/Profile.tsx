@@ -25,6 +25,7 @@ import {
 import ChangePasswordModal from "../ChangePasswordModal";
 import Loader from "../Loader";
 import { cn } from "@/lib/utils";
+import { isValidEmail, getPhoneNumberError } from "@/utils/validation";
 
 const API = import.meta.env.VITE_API_URL;
 const BASE_URL = API?.replace("/api", "") || "";
@@ -123,6 +124,7 @@ export default function Profile() {
   const [openPersonal, setOpenPersonal] = useState(false);
   const [openContact, setOpenContact] = useState(false);
   const [openJobInfo, setOpenJobInfo] = useState(false);
+  const [contactErrors, setContactErrors] = useState<{ email?: string; mobile?: string }>({});
   const [openChangePassword, setOpenChangePassword] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -568,7 +570,10 @@ export default function Profile() {
 
           <Section
             title="Contact Information"
-            onEdit={() => setOpenContact(true)}
+            onEdit={() => {
+              setContactErrors({});
+              setOpenContact(true);
+            }}
           >
             <Info label="Email" value={user.email} icon={<Mail />} />
             <Info label="Mobile" value={user.mobile} icon={<Phone />} />
@@ -762,13 +767,36 @@ export default function Profile() {
         >
           <Input
             label="Email"
+            type="email"
             value={form.email}
-            onChange={(e: any) => setForm({ ...form, email: e.target.value })}
+            onChange={(e: any) => {
+              setForm({ ...form, email: e.target.value });
+              setContactErrors((prev) => ({ ...prev, email: undefined }));
+            }}
+            onBlur={(e: any) => {
+              const val = e.target.value.trim();
+              setContactErrors((prev) => ({
+                ...prev,
+                email: val && !isValidEmail(val) ? "Enter a valid email address" : undefined,
+              }));
+            }}
+            error={contactErrors.email}
           />
           <Input
             label="Mobile"
+            type="tel"
             value={form.mobile}
-            onChange={(e: any) => setForm({ ...form, mobile: e.target.value })}
+            onChange={(e: any) => {
+              setForm({ ...form, mobile: e.target.value });
+              setContactErrors((prev) => ({ ...prev, mobile: undefined }));
+            }}
+            onBlur={(e: any) => {
+              setContactErrors((prev) => ({
+                ...prev,
+                mobile: getPhoneNumberError(e.target.value) || undefined,
+              }));
+            }}
+            error={contactErrors.mobile}
           />
           <Input
             label="Address"
@@ -777,6 +805,13 @@ export default function Profile() {
           />
           <ModalActions
             onSave={() => {
+              const emailError =
+                form.email && !isValidEmail(form.email) ? "Enter a valid email address" : undefined;
+              const mobileError = getPhoneNumberError(form.mobile) || undefined;
+              if (emailError || mobileError) {
+                setContactErrors({ email: emailError, mobile: mobileError });
+                return;
+              }
               updateUser({ email: form.email, mobile: form.mobile, address: form.address });
               setOpenContact(false);
             }}
@@ -1024,13 +1059,19 @@ const Modal = ({ title, children, onClose }: any) => (
 );
 
 
-const Input = ({ label, ...props }: any) => (
+const Input = ({ label, error, ...props }: any) => (
   <div className="space-y-1">
     <label className="text-xs font-bold text-[var(--muted-foreground)] uppercase">{label}</label>
     <input
       {...props}
-      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] transition-all"
+      className={cn(
+        "w-full rounded-lg border bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 transition-all",
+        error
+          ? "border-[var(--status-critical)] focus:ring-[var(--status-critical)] focus:border-[var(--status-critical)]"
+          : "border-[var(--border)] focus:ring-[var(--primary)] focus:border-[var(--primary)]"
+      )}
     />
+    {error && <p className="text-xs text-[var(--status-critical)]">{error}</p>}
   </div>
 );
 

@@ -67,6 +67,10 @@ export default function ViewClientModal({ clientId, onClose }: { clientId: strin
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">Business Information</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <div>
+                <p className="text-xs text-text-muted">Client Name</p>
+                <p className="text-text">{client.clientName || "—"}</p>
+              </div>
+              <div>
                 <p className="text-xs text-text-muted">Client Type</p>
                 <p className="text-text">{CLIENT_TYPE_LABELS[client.clientType] || "—"}</p>
               </div>

@@ -16,6 +16,7 @@ import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import SegmentedTabs from "../../components/ui/SegmentedTabs.jsx";
 import ViewClientModal from "../../components/business-clients/ViewClientModal.jsx";
+import { sanitizePan, sanitizeGstin, sanitizePhone, sanitizePincode, validatePan, validateGstin, validatePhone, validatePincode, validateEmail } from "../../utils/validators.js";
 
 const CLIENT_TYPE_LABELS = {
   individual: "Individual",
@@ -35,9 +36,29 @@ const SERVICE_LABELS = {
   payroll: "Payroll",
   other: "Other",
 };
+const INDUSTRY_OPTIONS = [
+  "Retail / Trading",
+  "Manufacturing",
+  "IT / Software Services",
+  "Healthcare",
+  "Real Estate / Construction",
+  "Education",
+  "Hospitality / Restaurant",
+  "Transportation / Logistics",
+  "Finance / Insurance",
+  "Agriculture",
+  "E-commerce",
+  "Professional Services (Legal, Consulting, etc.)",
+  "Textile / Garments",
+  "Pharmaceuticals",
+  "Automobile",
+  "Media / Entertainment",
+  "Other",
+];
 
 const INITIAL_FORM = {
   name: "",
+  clientName: "",
   clientType: "",
   pan: "",
   gstin: "",
@@ -55,14 +76,6 @@ const INITIAL_FORM = {
   planTierId: "",
 };
 
-function req(label) {
-  return (
-    <>
-      {label} <span className="text-danger">*</span>
-    </>
-  );
-}
-
 function Field({ label, required, children }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -79,19 +92,22 @@ function ServiceCheckboxes({ value, onChange }) {
     onChange(value.includes(service) ? value.filter((s) => s !== service) : [...value, service]);
   }
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {Object.entries(SERVICE_LABELS).map(([key, label]) => (
-        <button
-          key={key}
-          type="button"
-          onClick={() => toggle(key)}
-          className={`rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors ${
-            value.includes(key) ? "border-brand bg-brand-soft text-brand" : "border-border text-text-muted hover:text-text"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
+    <div className="flex flex-col gap-2">
+      {value.length === 0 && <p className="text-xs text-text-muted">Please click to select service(s)</p>}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {Object.entries(SERVICE_LABELS).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => toggle(key)}
+            className={`rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors ${
+              value.includes(key) ? "border-brand bg-brand-soft text-brand" : "border-border text-text-muted hover:text-text"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -189,23 +205,59 @@ function ResetAdminPasswordModal({ client, onClose, onDone }) {
 
 // ── Add / Edit Business Client ──────────────────────────────────────────────
 
+const SANITIZERS = {
+  pan: sanitizePan,
+  gstin: sanitizeGstin,
+  phone: sanitizePhone,
+  pincode: sanitizePincode,
+};
+
+// HRMS plan tiers barely ever change — cache them for the page session so
+// reopening "Add Client" doesn't refetch every single time.
+let planTiersCache: any[] | null = null;
+let planTiersPromise: Promise<any[]> | null = null;
+function loadPlanTiers(): Promise<any[]> {
+  if (planTiersCache) return Promise.resolve(planTiersCache);
+  if (!planTiersPromise) {
+    planTiersPromise = hrmsPlanTierApi.listHrmsPlanTiers().then(({ data }) => {
+      planTiersCache = data.data;
+      return planTiersCache;
+    });
+  }
+  return planTiersPromise;
+}
+
 function ClientFormModal({ open, onClose, editingClient, onSaved }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [planTiers, setPlanTiers] = useState([]);
 
+  const VALIDATORS = {
+    name: (v) => (v.trim() ? "" : "Business name is required"),
+    clientType: (v) => (v ? "" : "Select a client type"),
+    pan: (v) => validatePan(v, false),
+    gstin: (v) => validateGstin(v, false),
+    contactPerson: (v) => (v.trim() ? "" : "Contact person name is required"),
+    phone: (v) => validatePhone(v, true),
+    email: (v) => validateEmail(v, !editingClient),
+    pincode: (v) => validatePincode(v, false),
+  };
+
   useEffect(() => {
     if (!open) return;
-    hrmsPlanTierApi.listHrmsPlanTiers().then(({ data }) => setPlanTiers(data.data));
+    loadPlanTiers().then(setPlanTiers);
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     setError("");
+    setFieldErrors({});
     if (editingClient) {
       setForm({
         name: editingClient.name || "",
+        clientName: editingClient.clientName || "",
         clientType: editingClient.clientType || "",
         pan: editingClient.pan || "",
         gstin: editingClient.gstin || "",
@@ -226,18 +278,36 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
   }, [open, editingClient]);
 
   function update(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (e) => {
+      const raw = e.target.value;
+      const value = SANITIZERS[field] ? SANITIZERS[field](raw) : raw;
+      setForm((f) => ({ ...f, [field]: value }));
+      setFieldErrors((fe) => (field in fe ? { ...fe, [field]: VALIDATORS[field] ? VALIDATORS[field](value) : "" } : fe));
+    };
+  }
+
+  function handleBlur(field) {
+    return () => {
+      if (!VALIDATORS[field]) return;
+      setFieldErrors((fe) => ({ ...fe, [field]: VALIDATORS[field](form[field] || "") }));
+    };
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    if (form.services.length === 0) {
-      setError("Select at least one service");
+    const errors = {};
+    for (const field of Object.keys(VALIDATORS)) {
+      const msg = VALIDATORS[field](form[field] || "");
+      if (msg) errors[field] = msg;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fix the highlighted fields");
       return;
     }
-    if (!editingClient && !form.email) {
-      setError("Email is required to create this client's login");
+    if (form.services.length === 0) {
+      setError("Select at least one service");
       return;
     }
     if (!editingClient && form.useHrms && !form.planTierId) {
@@ -287,8 +357,25 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Business Information</p>
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
-              <Input label={req("Business / Client Name")} required value={form.name} onChange={update("name")} />
-              <Select label={req("Client Type")} required value={form.clientType} onChange={update("clientType")}>
+              <Input
+                label="Business Name"
+                required
+                value={form.name}
+                onChange={update("name")}
+                onBlur={handleBlur("name")}
+                error={fieldErrors.name}
+              />
+              <Input label="Client Name" value={form.clientName} onChange={update("clientName")} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Select
+                label="Client Type"
+                required
+                value={form.clientType}
+                onChange={update("clientType")}
+                onBlur={handleBlur("clientType")}
+                error={fieldErrors.clientType}
+              >
                 <option value="" disabled>
                   Select type
                 </option>
@@ -298,12 +385,35 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
                   </option>
                 ))}
               </Select>
+              <Select label="Industry / Business Category" value={form.industry} onChange={update("industry")}>
+                <option value="">Select industry</option>
+                {INDUSTRY_OPTIONS.map((i) => (
+                  <option key={i} value={i}>
+                    {i}
+                  </option>
+                ))}
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="PAN" value={form.pan} onChange={update("pan")} />
-              <Input label="GSTIN" value={form.gstin} onChange={update("gstin")} />
+              <Input
+                label="PAN"
+                value={form.pan}
+                onChange={update("pan")}
+                onBlur={handleBlur("pan")}
+                error={fieldErrors.pan}
+                placeholder="ABCDE1234F"
+                maxLength={10}
+              />
+              <Input
+                label="GSTIN"
+                value={form.gstin}
+                onChange={update("gstin")}
+                onBlur={handleBlur("gstin")}
+                error={fieldErrors.gstin}
+                placeholder="22ABCDE1234F1Z5"
+                maxLength={15}
+              />
             </div>
-            <Input label="Industry / Business Category" value={form.industry} onChange={update("industry")} />
           </div>
         </div>
 
@@ -311,15 +421,34 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Primary Contact</p>
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
-              <Input label={req("Contact Person Name")} required value={form.contactPerson} onChange={update("contactPerson")} />
-              <Input label={req("Mobile Number")} required value={form.phone} onChange={update("phone")} />
+              <Input
+                label="Contact Person Name"
+                required
+                value={form.contactPerson}
+                onChange={update("contactPerson")}
+                onBlur={handleBlur("contactPerson")}
+                error={fieldErrors.contactPerson}
+              />
+              <Input
+                label="Mobile Number"
+                required
+                value={form.phone}
+                onChange={update("phone")}
+                onBlur={handleBlur("phone")}
+                error={fieldErrors.phone}
+                placeholder="10-digit mobile number"
+                inputMode="numeric"
+                maxLength={10}
+              />
             </div>
             <Input
-              label={editingClient ? "Email" : req("Email")}
+              label="Email"
               required={!editingClient}
               type="email"
               value={form.email}
               onChange={update("email")}
+              onBlur={handleBlur("email")}
+              error={fieldErrors.email}
             />
           </div>
         </div>
@@ -331,13 +460,21 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
             <div className="grid grid-cols-3 gap-4">
               <Input label="City" value={form.city} onChange={update("city")} />
               <Input label="State" value={form.state} onChange={update("state")} />
-              <Input label="Pincode" value={form.pincode} onChange={update("pincode")} />
+              <Input
+                label="Pincode"
+                value={form.pincode}
+                onChange={update("pincode")}
+                onBlur={handleBlur("pincode")}
+                error={fieldErrors.pincode}
+                inputMode="numeric"
+                maxLength={6}
+              />
             </div>
           </div>
         </div>
 
         <div className="border-t border-border pt-4">
-          <Field label={req("Services")}>
+          <Field label="Services" required>
             <ServiceCheckboxes value={form.services} onChange={(v) => setForm((f) => ({ ...f, services: v }))} />
           </Field>
         </div>
@@ -371,7 +508,7 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
                 placeholder="Leave blank to auto-generate and email a temporary password"
               />
               {form.useHrms && (
-                <Field label={req("HRMS plan")}>
+                <Field label="HRMS plan" required>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {planTiers.map((tier) => (
                       <button
@@ -461,17 +598,24 @@ function UpgradeToHrmsModal({ client, onClose, onDone }) {
   const [planTierId, setPlanTierId] = useState("");
   const [planTiers, setPlanTiers] = useState([]);
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    hrmsPlanTierApi.listHrmsPlanTiers().then(({ data }) => setPlanTiers(data.data));
+    loadPlanTiers().then(setPlanTiers);
   }, []);
+
+  function handleEmailBlur() {
+    setEmailError(validateEmail(adminEmail, true));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    if (!adminEmail) {
-      setError("An email is required to create the HRMS login");
+    const emailMsg = validateEmail(adminEmail, true);
+    if (emailMsg) {
+      setEmailError(emailMsg);
+      setError("Please fix the highlighted fields");
       return;
     }
     if (!planTierId) {
@@ -513,13 +657,15 @@ function UpgradeToHrmsModal({ client, onClose, onDone }) {
           onto full HRMS — their Excel payroll history stays as-is but new payroll runs happen in HRMS instead.
         </p>
         <div className="grid grid-cols-2 gap-4">
-          <Input label={req("HRMS admin name")} required value={adminName} onChange={(e) => setAdminName(e.target.value)} />
+          <Input label="HRMS admin name" required value={adminName} onChange={(e) => setAdminName(e.target.value)} />
           <Input
-            label={req("HRMS admin email")}
+            label="HRMS admin email"
             required
             type="email"
             value={adminEmail}
             onChange={(e) => setAdminEmail(e.target.value)}
+            onBlur={handleEmailBlur}
+            error={emailError}
           />
         </div>
         <Input
@@ -530,7 +676,7 @@ function UpgradeToHrmsModal({ client, onClose, onDone }) {
           onChange={(e) => setAdminPassword(e.target.value)}
           placeholder="Leave blank to auto-generate and email a temporary password"
         />
-        <Field label={req("HRMS plan")}>
+        <Field label="HRMS plan" required>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {planTiers.map((tier) => (
               <button

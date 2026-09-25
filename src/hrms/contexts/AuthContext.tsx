@@ -16,6 +16,7 @@ type User = {
   isSystemAdmin?: boolean;
   companyLogo?: string | null;
   companyStamp?: string | null;
+  isTrainee?: boolean;
 } | null;
 
 export interface AuthContextType {
