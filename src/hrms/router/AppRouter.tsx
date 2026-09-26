@@ -729,6 +729,7 @@ export default function AppRouter() {
           <Route path="self-service/payroll" element={<SelfServicePayroll />} />
           <Route path="self-service/documents" element={<DocumentUpload />} />
           <Route path="self-service/requests" element={<SelfServiceRequests />} />
+          <Route path="self-service/letters" element={<EmployeeLetters />} />
         </Route>
 
 

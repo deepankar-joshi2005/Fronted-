@@ -23,6 +23,7 @@ import {
 import * as crmApi from "../../api/crm.api.js";
 import * as staffApi from "../../api/staff.api.js";
 import * as businessClientApi from "../../api/businessClient.api.js";
+import * as hrmsPlanTierApi from "../../api/hrmsPlanTier.api.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import { ROLES } from "../../config/roles.js";
 import Card from "../../components/ui/Card.jsx";
@@ -72,6 +73,25 @@ const SERVICE_LABELS = {
   loan_advisory: "Loan / Financial Advisory",
   other: "Other",
 };
+const INDUSTRY_OPTIONS = [
+  "Retail / Trading",
+  "Manufacturing",
+  "IT / Software Services",
+  "Healthcare",
+  "Real Estate / Construction",
+  "Education",
+  "Hospitality / Restaurant",
+  "Transportation / Logistics",
+  "Finance / Insurance",
+  "Agriculture",
+  "E-commerce",
+  "Professional Services (Legal, Consulting, etc.)",
+  "Textile / Garments",
+  "Pharmaceuticals",
+  "Automobile",
+  "Media / Entertainment",
+  "Other",
+];
 const SOURCE_LABELS = {
   website: "Website",
   phone_call: "Phone Call",
@@ -118,12 +138,13 @@ function combineDateTime(dateStr, timeStr) {
   return timeStr ? `${dateStr}T${timeStr}` : dateStr;
 }
 
-function Field({ label, required, children }) {
+function Field({ label, required = false, hint = null, children }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-medium text-text">
         {label} {required && <span className="text-danger">*</span>}
       </label>
+      {hint && <p className="text-xs text-text-muted">{hint}</p>}
       {children}
     </div>
   );
@@ -222,19 +243,22 @@ function ServiceCheckboxes({ value, onChange }) {
     onChange(value.includes(service) ? value.filter((s) => s !== service) : [...value, service]);
   }
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {Object.entries(SERVICE_LABELS).map(([key, label]) => (
-        <button
-          key={key}
-          type="button"
-          onClick={() => toggle(key)}
-          className={`rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors ${
-            value.includes(key) ? "border-brand bg-brand-soft text-brand" : "border-border text-text-muted hover:text-text"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
+    <div className="flex flex-col gap-2">
+      {value.length === 0 && <p className="text-xs text-text-muted">(Please select to add service)</p>}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {Object.entries(SERVICE_LABELS).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => toggle(key)}
+            className={`rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors ${
+              value.includes(key) ? "border-brand bg-brand-soft text-brand" : "border-border text-text-muted hover:text-text"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -451,7 +475,14 @@ function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSa
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Industry" value={form.industry} onChange={update("industry")} />
+              <Select label="Industry" value={form.industry} onChange={update("industry")}>
+                <option value="">Select industry</option>
+                {INDUSTRY_OPTIONS.map((i) => (
+                  <option key={i} value={i}>
+                    {i}
+                  </option>
+                ))}
+              </Select>
               <Input label="City" value={form.city} onChange={update("city")} />
             </div>
           </div>
@@ -787,11 +818,17 @@ function DeleteLeadModal({ open, onClose, lead, onDeleted }) {
 
 // ── Provision to HRMS ───────────────────────────────────────────────────────
 
-function ProvisionModal({ lead, onClose, onDone }) {
-  const [form, setForm] = useState({ adminName: lead.name, adminEmail: lead.email || "", adminPassword: "" });
+function ProvisionModal({ lead, initialMode = "hrms", onClose, onDone }) {
+  const [mode, setMode] = useState(initialMode); // "hrms" | "non-hrms"
+  const [form, setForm] = useState({ adminName: lead.name, adminEmail: lead.email || "", adminPassword: "", planTierId: "" });
+  const [planTiers, setPlanTiers] = useState([]);
   const [error, setError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    hrmsPlanTierApi.listHrmsPlanTiers().then(({ data }) => setPlanTiers(data.data));
+  }, []);
 
   function update(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -812,12 +849,20 @@ function ProvisionModal({ lead, onClose, onDone }) {
     }
     setSubmitting(true);
     try {
-      const payload = { ...form, name: lead.name, email: lead.email, phone: lead.phone, leadId: lead._id };
+      const payload = {
+        ...form,
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        leadId: lead._id,
+        useHrms: mode === "hrms",
+      };
       if (!payload.adminPassword) delete payload.adminPassword;
+      if (mode === "non-hrms") delete payload.planTierId;
       await businessClientApi.createBusinessClient(payload);
       onDone();
     } catch (err) {
-      setError(err.response?.data?.message || "Could not provision HRMS access");
+      setError(err.response?.data?.message || "Could not provision client access");
     } finally {
       setSubmitting(false);
     }
@@ -827,14 +872,15 @@ function ProvisionModal({ lead, onClose, onDone }) {
     <Modal
       open
       onClose={onClose}
-      title={`Provision HRMS — ${lead.name}`}
+      title={`Provision — ${lead.name}`}
+      size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
           <Button form="provision-form" type="submit" loading={submitting}>
-            Provision HRMS
+            {mode === "hrms" ? "Provision HRMS" : "Provision Non-HRMS"}
           </Button>
         </>
       }
@@ -843,9 +889,44 @@ function ProvisionModal({ lead, onClose, onDone }) {
         {error && (
           <div className="rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger">{error}</div>
         )}
+
+        <Field label="Client type">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("hrms")}
+              className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                mode === "hrms" ? "border-brand bg-brand-soft" : "border-border hover:text-text"
+              }`}
+            >
+              <span className="block text-sm font-semibold text-text">HRMS Business Client</span>
+              <span className="block text-xs text-text-muted">Full HRMS workspace — employees, attendance, payroll</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("non-hrms")}
+              className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                mode === "non-hrms" ? "border-brand bg-brand-soft" : "border-border hover:text-text"
+              }`}
+            >
+              <span className="block text-sm font-semibold text-text">Non-HRMS Business Client</span>
+              <span className="block text-xs text-text-muted">Excel-style payroll only, no HRMS workspace</span>
+            </button>
+          </div>
+        </Field>
+
         <p className="text-sm text-text-muted">
-          This gives <strong className="text-text">{lead.name}</strong> its own HRMS workspace (employees, attendance,
-          payroll) with an admin login. Client details are carried over from this record.
+          {mode === "hrms" ? (
+            <>
+              This gives <strong className="text-text">{lead.name}</strong> its own HRMS workspace (employees,
+              attendance, payroll) with an admin login. Client details are carried over from this record.
+            </>
+          ) : (
+            <>
+              This gives <strong className="text-text">{lead.name}</strong> a login to manage their own employees and
+              run Excel-style payroll at <strong className="text-text">/client-admin</strong>, without an HRMS workspace.
+            </>
+          )}
         </p>
         <Input label="Admin name" required value={form.adminName} onChange={update("adminName")} />
         <Input
@@ -865,6 +946,30 @@ function ProvisionModal({ lead, onClose, onDone }) {
           onChange={update("adminPassword")}
           placeholder="Leave blank to auto-generate and email a temporary password"
         />
+        {mode === "hrms" && (
+          <Field label="HRMS plan" hint="Optional — leave unselected and the client will be asked to subscribe after they log in.">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {planTiers.map((tier) => (
+                <button
+                  key={tier._id}
+                  type="button"
+                  onClick={() =>
+                    setForm((f) => ({ ...f, planTierId: f.planTierId === tier._id ? "" : tier._id }))
+                  }
+                  className={`flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                    form.planTierId === tier._id ? "border-brand bg-brand-soft" : "border-border hover:text-text"
+                  }`}
+                >
+                  <span className="text-sm font-semibold text-text">{tier.name}</span>
+                  <span className="text-xs text-text-muted">
+                    {tier.maxEmployees ? `${tier.minEmployees}-${tier.maxEmployees} employees` : `${tier.minEmployees}+ employees`}
+                  </span>
+                  <span className="text-xs font-medium text-brand">₹{tier.price.toLocaleString("en-IN")}/mo</span>
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
       </form>
     </Modal>
   );
@@ -872,7 +977,7 @@ function ProvisionModal({ lead, onClose, onDone }) {
 
 // ── Client card (converted leads) ───────────────────────────────────────────
 
-function ClientCard({ lead, isAdmin, onEdit, onDelete, onProvision, onChanged }) {
+function ClientCard({ lead, isAdmin, onEdit, onDelete, onProvision, onProvisionNonHrms, onChanged }) {
   const [notesModalOpen, setNotesModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
@@ -882,6 +987,7 @@ function ClientCard({ lead, isAdmin, onEdit, onDelete, onProvision, onChanged })
         <div className="flex items-center gap-2">
           <p className="text-base font-bold text-heading">{lead.name}</p>
           {lead.company && <span className="text-sm text-text-muted">({lead.company})</span>}
+          <StatusBadge status={lead.status} />
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
           <span className="flex items-center gap-1.5">
@@ -930,13 +1036,18 @@ function ClientCard({ lead, isAdmin, onEdit, onDelete, onProvision, onChanged })
         )}
         {lead.businessClientId ? (
           <Badge variant="success">
-            <ShieldCheck size={12} className="mr-1 inline" /> HRMS active
+            <ShieldCheck size={12} className="mr-1 inline" /> {lead.businessClientId?.useHrms === false ? "Non-HRMS active" : "HRMS active"}
           </Badge>
         ) : (
           isAdmin && (
-            <Button size="sm" onClick={() => onProvision(lead)}>
-              <ExternalLink size={14} /> Provision to HRMS
-            </Button>
+            <>
+              <Button variant="secondary" size="sm" onClick={() => onProvisionNonHrms(lead)}>
+                <ExternalLink size={14} /> Provision Non-HRMS
+              </Button>
+              <Button size="sm" onClick={() => onProvision(lead)}>
+                <ExternalLink size={14} /> Provision to HRMS
+              </Button>
+            </>
           )
         )}
       </div>
@@ -1154,9 +1265,10 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onChanged }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-// Converted leads live in the "Clients" tab instead — Pipeline's own status
-// filter only ever offers the in-progress/dead-end stages.
-const PIPELINE_STATUSES = ["new", "contacted", "qualified", "lost"];
+// Won leads also show up in the "Clients" tab, but they must stay visible here
+// too (with their "Won" badge) instead of vanishing from the Pipeline the
+// moment they're marked won.
+const PIPELINE_STATUSES = ["new", "contacted", "qualified", "converted", "lost"];
 
 export default function CrmPage() {
   const { user } = useAuth();
@@ -1175,6 +1287,7 @@ export default function CrmPage() {
   const [clientsLoading, setClientsLoading] = useState(true);
   const [clientSearch, setClientSearch] = useState("");
   const [provisionTarget, setProvisionTarget] = useState(null);
+  const [provisionMode, setProvisionMode] = useState("hrms");
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
@@ -1186,7 +1299,6 @@ export default function CrmPage() {
       const params = {};
       if (searchTerm) params.search = searchTerm;
       if (statusValue) params.status = statusValue;
-      else params.excludeConverted = true;
       const { data } = await crmApi.listLeads(params);
       setLeads(data.data);
     } finally {
@@ -1382,7 +1494,14 @@ export default function CrmPage() {
                   isAdmin={isAdmin}
                   onEdit={openEdit}
                   onDelete={setDeleteTarget}
-                  onProvision={setProvisionTarget}
+                  onProvision={(l) => {
+                    setProvisionMode("hrms");
+                    setProvisionTarget(l);
+                  }}
+                  onProvisionNonHrms={(l) => {
+                    setProvisionMode("non-hrms");
+                    setProvisionTarget(l);
+                  }}
                   onChanged={refreshAll}
                 />
               ))}
@@ -1394,6 +1513,7 @@ export default function CrmPage() {
       {provisionTarget && (
         <ProvisionModal
           lead={provisionTarget}
+          initialMode={provisionMode}
           onClose={() => setProvisionTarget(null)}
           onDone={() => {
             setProvisionTarget(null);

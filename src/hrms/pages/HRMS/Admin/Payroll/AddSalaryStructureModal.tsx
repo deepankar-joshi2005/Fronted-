@@ -17,8 +17,8 @@ interface Employee {
 }
 
 const emptyValues = () => {
-  const values: Record<string, number> = {};
-  for (const [key] of [...EARNING_COMPONENTS, ...DEDUCTION_COMPONENTS]) values[key] = 0;
+  const values: Record<string, string> = {};
+  for (const [key] of [...EARNING_COMPONENTS, ...DEDUCTION_COMPONENTS]) values[key] = "0";
   return values;
 };
 
@@ -29,14 +29,25 @@ const AddSalaryStructureModal = ({ isOpen, onClose, editData }: Props) => {
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employee, setEmployee] = useState("");
-  const [values, setValues] = useState<Record<string, number>>(emptyValues());
+  // Kept as raw strings (not numbers) while editing — a controlled
+  // type="number" input bound to a coerced/clamped number fights the user
+  // mid-keystroke (e.g. typing "10" gets its leading digit stripped as soon
+  // as "1" is parsed and re-rendered back), which is what was happening here.
+  const [values, setValues] = useState<Record<string, string>>(emptyValues());
 
-  const setField = (key: string, val: number) =>
-    setValues((prev) => ({ ...prev, [key]: Math.max(0, val) }));
+  const setField = (key: string, val: string) =>
+    setValues((prev) => ({ ...prev, [key]: val }));
+
+  // Normalize on blur only, so we don't rewrite the field while the user is
+  // still typing — empty becomes "0", stray minus signs are dropped.
+  const normalizeField = (key: string) =>
+    setValues((prev) => ({ ...prev, [key]: String(Math.max(0, Number(prev[key]) || 0)) }));
+
+  const numericValue = (key: string) => Math.max(0, Number(values[key]) || 0);
 
   /* CALCULATIONS */
-  const totalEarnings = EARNING_COMPONENTS.reduce((sum, [key]) => sum + (values[key] || 0), 0);
-  const totalDeductions = DEDUCTION_COMPONENTS.reduce((sum, [key]) => sum + (values[key] || 0), 0);
+  const totalEarnings = EARNING_COMPONENTS.reduce((sum, [key]) => sum + numericValue(key), 0);
+  const totalDeductions = DEDUCTION_COMPONENTS.reduce((sum, [key]) => sum + numericValue(key), 0);
   const netSalary = totalEarnings - totalDeductions;
 
   /* PREFILL */
@@ -44,7 +55,7 @@ const AddSalaryStructureModal = ({ isOpen, onClose, editData }: Props) => {
     if (editData) {
       setEmployee(editData.employee?._id || "");
       const next = emptyValues();
-      for (const key of Object.keys(next)) next[key] = editData[key] || 0;
+      for (const key of Object.keys(next)) next[key] = String(editData[key] ?? 0);
       setValues(next);
     } else {
       setEmployee("");
@@ -71,7 +82,10 @@ const AddSalaryStructureModal = ({ isOpen, onClose, editData }: Props) => {
         return;
       }
 
-      const payload = { employee, ...values };
+      const numericValues = Object.fromEntries(
+        Object.keys(values).map((key) => [key, numericValue(key)])
+      );
+      const payload = { employee, ...numericValues };
 
       if (editData) {
         await axios.put(
@@ -140,9 +154,11 @@ const AddSalaryStructureModal = ({ isOpen, onClose, editData }: Props) => {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
                     <input
                       type="number"
+                      min="0"
                       className="w-full border pl-7 pr-3 py-1.5 rounded text-sm outline-none focus:border-orange-500"
-                      value={values[key] ?? 0}
-                      onChange={(e) => setField(key, +e.target.value)}
+                      value={values[key] ?? "0"}
+                      onChange={(e) => setField(key, e.target.value)}
+                      onBlur={() => normalizeField(key)}
                     />
                   </div>
                 </div>
@@ -163,9 +179,11 @@ const AddSalaryStructureModal = ({ isOpen, onClose, editData }: Props) => {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
                     <input
                       type="number"
+                      min="0"
                       className="w-full border pl-7 pr-3 py-1.5 rounded text-sm outline-none focus:border-orange-500"
-                      value={values[key] ?? 0}
-                      onChange={(e) => setField(key, +e.target.value)}
+                      value={values[key] ?? "0"}
+                      onChange={(e) => setField(key, e.target.value)}
+                      onBlur={() => normalizeField(key)}
                     />
                   </div>
                 </div>

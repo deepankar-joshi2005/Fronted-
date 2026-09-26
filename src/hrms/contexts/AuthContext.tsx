@@ -8,6 +8,7 @@ type User = {
   name: string;
   companyId?: string;
   subscriptionPlan?: string;
+  subscriptionStatus?: string;
   trialEndDate?: string | null;
   subscriptionEndDate?: string | null;
   leadMentorId?: string;

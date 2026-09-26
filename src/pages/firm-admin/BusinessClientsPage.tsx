@@ -76,12 +76,13 @@ const INITIAL_FORM = {
   planTierId: "",
 };
 
-function Field({ label, required, children }) {
+function Field({ label, required = false, hint = null, children }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-medium text-text">
         {label} {required && <span className="text-danger">*</span>}
       </label>
+      {hint && <p className="text-xs text-text-muted">{hint}</p>}
       {children}
     </div>
   );
@@ -310,10 +311,6 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
       setError("Select at least one service");
       return;
     }
-    if (!editingClient && form.useHrms && !form.planTierId) {
-      setError("Select an HRMS plan for this client");
-      return;
-    }
     setSubmitting(true);
     try {
       if (editingClient) {
@@ -508,13 +505,13 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
                 placeholder="Leave blank to auto-generate and email a temporary password"
               />
               {form.useHrms && (
-                <Field label="HRMS plan" required>
+                <Field label="HRMS plan" hint="Optional — leave unselected and the client will be asked to subscribe after they log in.">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {planTiers.map((tier) => (
                       <button
                         key={tier._id}
                         type="button"
-                        onClick={() => setForm((f) => ({ ...f, planTierId: tier._id }))}
+                        onClick={() => setForm((f) => ({ ...f, planTierId: f.planTierId === tier._id ? "" : tier._id }))}
                         className={`flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition-colors ${
                           form.planTierId === tier._id
                             ? "border-brand bg-brand-soft"
@@ -618,10 +615,6 @@ function UpgradeToHrmsModal({ client, onClose, onDone }) {
       setError("Please fix the highlighted fields");
       return;
     }
-    if (!planTierId) {
-      setError("Select an HRMS plan for this client");
-      return;
-    }
     setSubmitting(true);
     try {
       const { data } = await businessClientApi.upgradeToHrms(client._id, { adminName, adminEmail, adminPassword, planTierId });
@@ -676,13 +669,13 @@ function UpgradeToHrmsModal({ client, onClose, onDone }) {
           onChange={(e) => setAdminPassword(e.target.value)}
           placeholder="Leave blank to auto-generate and email a temporary password"
         />
-        <Field label="HRMS plan" required>
+        <Field label="HRMS plan" hint="Optional — leave unselected and the client will be asked to subscribe after they log in.">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {planTiers.map((tier) => (
               <button
                 key={tier._id}
                 type="button"
-                onClick={() => setPlanTierId(tier._id)}
+                onClick={() => setPlanTierId((prev) => (prev === tier._id ? "" : tier._id))}
                 className={`flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition-colors ${
                   planTierId === tier._id ? "border-brand bg-brand-soft" : "border-border hover:text-text"
                 }`}

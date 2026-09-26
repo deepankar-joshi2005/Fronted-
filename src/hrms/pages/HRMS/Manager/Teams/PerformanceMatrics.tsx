@@ -172,8 +172,9 @@ export default function PerformanceMetrics() {
 
             const teamMembers = usersRes.data.filter(
                 (u: User) =>
-                    u.managerId?._id === loggedInUser.id ||
-                    u.managerId?._id === loggedInUser._id
+                    (u.managerId?._id === loggedInUser.id ||
+                        u.managerId?._id === loggedInUser._id) &&
+                    u.role?.toLowerCase() !== "superadmin"
             );
 
             setUsers(teamMembers);

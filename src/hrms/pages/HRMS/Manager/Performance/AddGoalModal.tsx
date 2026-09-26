@@ -20,6 +20,7 @@ interface User {
   _id: string;
   name: string;
   employeeId: string;
+  role?: string;
   managerId: {
     _id: string;
     name?: string;
@@ -94,7 +95,9 @@ export default function AddGoalModal({
       });
 
       const filtered = res.data.filter(
-        (u: User) => u.managerId?._id === loggedInManagerId
+        (u: User) =>
+          u.managerId?._id === loggedInManagerId &&
+          u.role?.toLowerCase() !== "superadmin"
       );
   
 
@@ -181,12 +184,12 @@ const handleSubmit = async () => {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="rounded-2xl p-0 max-w-md overflow-hidden">
-        <DialogHeader className="p-6 pb-4 border-b bg-gray-50/50">
+        <DialogHeader className="p-6 pb-4 border-b border-[var(--border)] bg-[var(--muted)]">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-orange-100 text-orange-600 rounded-xl">
+            <div className="p-2.5 bg-[var(--primary)]/10 text-[var(--primary)] rounded-xl">
               <Target size={18} />
             </div>
-            <DialogTitle className="text-lg font-bold text-gray-900">
+            <DialogTitle className="text-lg font-bold text-[var(--foreground)]">
               {editGoal ? "Edit Goal" : "Add Goal"}
             </DialogTitle>
           </div>
@@ -194,29 +197,29 @@ const handleSubmit = async () => {
 
         <div className="space-y-4 p-6 pt-4">
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Goal Title *</Label>
+            <Label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wide">Goal Title *</Label>
             <Input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="rounded-xl focus-visible:ring-orange-300"
+              className="rounded-xl focus-visible:ring-[var(--primary)]"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Description</Label>
+            <Label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wide">Description</Label>
             <Textarea
               value={form.description}
               onChange={(e) =>
                 setForm({ ...form, description: e.target.value })
               }
-              className="rounded-xl focus-visible:ring-orange-300"
+              className="rounded-xl focus-visible:ring-[var(--primary)]"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Assign To *</Label>
+            <Label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wide">Assign To *</Label>
             <select
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-orange-300 outline-none"
+              className="w-full border border-[var(--input)] bg-[var(--card)] text-[var(--foreground)] rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--primary)] outline-none"
               value={form.assignedTo}
               onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
             >
@@ -229,17 +232,17 @@ const handleSubmit = async () => {
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Deadline *</Label>
+            <Label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wide">Deadline *</Label>
             <Input
               type="date"
               value={form.deadline}
               onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-              className="rounded-xl focus-visible:ring-orange-300"
+              className="rounded-xl focus-visible:ring-[var(--primary)]"
             />
           </div>
 
           <Button
-            className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 font-bold h-11 shadow-sm shadow-orange-200"
+            className="w-full rounded-xl bg-[var(--primary)] hover:opacity-90 font-bold h-11 shadow-sm"
             onClick={handleSubmit}
             disabled={loading}
           >

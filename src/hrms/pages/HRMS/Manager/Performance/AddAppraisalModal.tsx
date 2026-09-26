@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { toast } from "../../Alert/Toast";
 const API_BASE = import.meta.env.VITE_API_URL;
 
+interface EmployeeOption {
+  _id: string;
+  name: string;
+  employeeId?: string;
+}
+
 const AddAppraisalModal = ({ open, onClose, data, onSuccess }: any) => {
   const token = localStorage.getItem("token");
 
@@ -12,25 +18,63 @@ const AddAppraisalModal = ({ open, onClose, data, onSuccess }: any) => {
     type: "MID_YEAR",
     startDate: "",
     endDate: "",
-    applicableFor: "All Employees",
+    applicableFor: [] as string[],
     status: "DRAFT",
   });
+  const [allEmployees, setAllEmployees] = useState(true);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
 
   const [errors, setErrors] = useState<any>({});
+
+  /* ================= FETCH EMPLOYEES (role = employee only) ================= */
+  useEffect(() => {
+    if (!open) return;
+    axios
+      .get(`${API_BASE}/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { role: "employee" },
+      })
+      .then((res) => setEmployees(res.data || []))
+      .catch((err) => console.error("Failed to load employees", err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   /* ================= PREFILL ================= */
   useEffect(() => {
     if (data) {
+      const ids: string[] = (data.applicableFor || []).map((u: any) =>
+        typeof u === "string" ? u : u._id
+      );
       setForm({
         title: data.title,
         type: data.type,
         startDate: data.startDate.split("T")[0],
         endDate: data.endDate.split("T")[0],
-        applicableFor: data.applicableFor || "All Employees",
+        applicableFor: ids,
         status: data.status,
       });
+      setAllEmployees(ids.length === 0);
+    } else {
+      setForm({
+        title: "",
+        type: "MID_YEAR",
+        startDate: "",
+        endDate: "",
+        applicableFor: [],
+        status: "DRAFT",
+      });
+      setAllEmployees(true);
     }
-  }, [data]);
+  }, [data, open]);
+
+  const toggleEmployee = (id: string) => {
+    setForm((prev) => ({
+      ...prev,
+      applicableFor: prev.applicableFor.includes(id)
+        ? prev.applicableFor.filter((x) => x !== id)
+        : [...prev.applicableFor, id],
+    }));
+  };
 
   /* ================= VALIDATION ================= */
   const validate = () => {
@@ -39,8 +83,9 @@ const AddAppraisalModal = ({ open, onClose, data, onSuccess }: any) => {
     if (!form.title.trim()) newErrors.title = "Title is required";
     if (!form.startDate) newErrors.startDate = "Start date is required";
     if (!form.endDate) newErrors.endDate = "End date is required";
-    if (!form.applicableFor || !form.applicableFor.trim()) {
-      newErrors.applicableFor = "Applicable for is required";
+    if (!allEmployees && form.applicableFor.length === 0) {
+      newErrors.applicableFor =
+        "Select at least one employee, or choose All Employees";
     }
 
 
@@ -52,11 +97,20 @@ const AddAppraisalModal = ({ open, onClose, data, onSuccess }: any) => {
 const submit = async () => {
   if (!validate()) return;
 
+  const payload = {
+    title: form.title,
+    type: form.type,
+    startDate: form.startDate,
+    endDate: form.endDate,
+    applicableFor: allEmployees ? [] : form.applicableFor,
+    status: form.status,
+  };
+
   try {
     let res;
 
     if (data) {
-      res = await axios.put(`${API_BASE}/appraisals/${data._id}`, form, {
+      res = await axios.put(`${API_BASE}/appraisals/${data._id}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -67,7 +121,7 @@ const submit = async () => {
           res.data?.message || "Appraisal has been updated successfully.",
       });
     } else {
-      res = await axios.post(`${API_BASE}/appraisals`, form, {
+      res = await axios.post(`${API_BASE}/appraisals`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -187,16 +241,53 @@ const submit = async () => {
             <label className="text-sm font-medium">
               Applicable For <span className="text-red-500">*</span>
             </label>
-            <input
-              className={`w-full border rounded-md p-2 text-sm ${
-                errors.applicableFor ? "border-red-500" : ""
-              }`}
-              value={form.applicableFor}
-              onChange={(e) => {
-                setForm({ ...form, applicableFor: e.target.value });
-                setErrors({ ...errors, applicableFor: "" });
-              }}
-            />
+
+            <label className="flex items-center gap-2 mt-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={allEmployees}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setAllEmployees(checked);
+                  if (checked) setForm({ ...form, applicableFor: [] });
+                  setErrors({ ...errors, applicableFor: "" });
+                }}
+              />
+              All Employees
+            </label>
+
+            {!allEmployees && (
+              <div
+                className={`mt-2 max-h-40 overflow-y-auto border rounded-md p-2 space-y-1 ${
+                  errors.applicableFor ? "border-red-500" : ""
+                }`}
+              >
+                {employees.length === 0 ? (
+                  <p className="text-xs text-gray-400 p-1">
+                    No employees found.
+                  </p>
+                ) : (
+                  employees.map((emp) => (
+                    <label
+                      key={emp._id}
+                      className="flex items-center gap-2 text-sm p-1 rounded hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.applicableFor.includes(emp._id)}
+                        onChange={() => {
+                          toggleEmployee(emp._id);
+                          setErrors({ ...errors, applicableFor: "" });
+                        }}
+                      />
+                      {emp.name}
+                      {emp.employeeId ? ` (${emp.employeeId})` : ""}
+                    </label>
+                  ))
+                )}
+              </div>
+            )}
+
             {errors.applicableFor && (
               <p className="text-xs text-red-500 mt-1">
                 {errors.applicableFor}

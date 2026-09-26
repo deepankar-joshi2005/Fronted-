@@ -337,7 +337,7 @@ const CompanySettings = () => {
           )}
           {editing && (
             <div className="mt-2 text-center">
-              <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
+              <input ref={logoRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleLogoFile} />
               <button
                 type="button"
                 onClick={() => logoRef.current?.click()}
@@ -479,7 +479,7 @@ const CompanySettings = () => {
 
           {editing ? (
             <div>
-              <input ref={stampRef} type="file" accept="image/*" className="hidden" onChange={handleStampFile} />
+              <input ref={stampRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleStampFile} />
               <button
                 type="button"
                 onClick={() => stampRef.current?.click()}

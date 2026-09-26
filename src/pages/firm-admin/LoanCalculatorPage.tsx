@@ -151,7 +151,9 @@ export default function LoanCalculatorPage() {
 
   useEffect(() => {
     loadHistory();
-    crmApi.listLeads({ limit: 100 }).then(({ data }) => setClientOptions(data.data));
+    // includeHidden: clients added directly via /firm-admin/clients must stay
+    // selectable here even though their backing Lead is hidden from the CRM page.
+    crmApi.listLeads({ limit: 100, includeHidden: true }).then(({ data }) => setClientOptions(data.data));
   }, []);
 
   function updateEmi(field) {

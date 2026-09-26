@@ -41,6 +41,7 @@ import {
   FileUp,
   Clock,
   FileText,
+  Mail,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -318,6 +319,7 @@ function HRMSAuditorLayoutInner({ children }: Props) {
               "/hrms/self-service/payroll",
               "/hrms/self-service/documents",
               "/hrms/self-service/requests",
+              "/hrms/self-service/letters",
             ]}
           >
             <SidebarNavItem to="/hrms/self-service/profile" icon={User}>
@@ -337,6 +339,9 @@ function HRMSAuditorLayoutInner({ children }: Props) {
             </SidebarNavItem>
             <SidebarNavItem to="/hrms/self-service/requests" icon={FileText}>
               My Requests
+            </SidebarNavItem>
+            <SidebarNavItem to="/hrms/self-service/letters" icon={Mail}>
+              My Letters
             </SidebarNavItem>
           </CollapsibleSidebarGroup>
         </SidebarContent>

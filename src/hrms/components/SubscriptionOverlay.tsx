@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useSubscriptionExpiration } from "@/hooks/useSubscriptionExpiration";
 
 const SubscriptionOverlay: React.FC = () => {
-  const { isExpired, expirationTitle, expirationDesc, isAdmin } = useSubscriptionExpiration();
+  const { isExpired, expirationTitle, expirationDesc, isAdmin, isNeverSubscribed } = useSubscriptionExpiration();
 
   if (!isExpired) return null;
 
@@ -31,7 +31,7 @@ const SubscriptionOverlay: React.FC = () => {
           {isAdmin ? (
             <Link to="/hrms/SuperAdmin/billing">
               <Button className="w-full h-14 text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 rounded-2xl shadow-xl shadow-blue-500/40 group active:scale-[0.98] transition-all">
-                Go to Billing & Upgrade
+                {isNeverSubscribed ? "Subscribe Now" : "Go to Billing & Upgrade"}
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-2 transition-transform" />
               </Button>
             </Link>

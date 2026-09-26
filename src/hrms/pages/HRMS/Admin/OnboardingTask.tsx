@@ -82,7 +82,10 @@ const OnboardingTasks = () => {
 
   const fetchAll = async () => {
     try {
-      const empRes = await axios.get(`${API_BASE}/users`, getAuthHeaders());
+      const empRes = await axios.get(`${API_BASE}/users`, {
+        ...getAuthHeaders(),
+        params: { excludeRoles: "superadmin" },
+      });
 
       const deptRes = await axios.get(
         `${API_BASE}/departments`,

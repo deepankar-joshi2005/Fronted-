@@ -34,7 +34,10 @@ export default function SelfAppraisalViewModal({ open, onClose, data }: any) {
             {new Date(data.endDate).toLocaleDateString()}
           </p>
           <p>
-            <b>Applicable For:</b> {data.applicableFor}
+            <b>Applicable For:</b>{" "}
+            {Array.isArray(data.applicableFor) && data.applicableFor.length > 0
+              ? data.applicableFor.map((u: any) => u?.name || u).join(", ")
+              : "All Employees"}
           </p>
           <p>
             <b>Progress:</b> {data.progress}%

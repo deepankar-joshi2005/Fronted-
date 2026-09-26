@@ -19,10 +19,15 @@ type Appraisal = {
   type: "MID_YEAR" | "ANNUAL";
   startDate: string;
   endDate: string;
-  applicableFor: string;
+  applicableFor: { _id: string; name: string; employeeId?: string }[];
   status: "DRAFT" | "ACTIVE" | "CLOSED";
   progress: number;
 };
+
+const formatApplicableFor = (a: Appraisal) =>
+  a.applicableFor && a.applicableFor.length > 0
+    ? a.applicableFor.map((u) => u.name).join(", ")
+    : "All Employees";
 
 export default function Appraisals() {
   const token = localStorage.getItem("token");
@@ -86,7 +91,7 @@ export default function Appraisals() {
     return data.filter((a) => {
       const matchesSearch =
         a.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        a.applicableFor?.toLowerCase().includes(searchTerm.toLowerCase());
+        formatApplicableFor(a).toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStatus =
         statusFilter === "all" || a.status.toLowerCase() === statusFilter.toLowerCase();
@@ -221,7 +226,7 @@ export default function Appraisals() {
                       {new Date(a.endDate).toLocaleDateString("en-GB")}
                     </p>
                     <p>
-                      <strong className="text-[var(--foreground)]">Applicable For:</strong> {a.applicableFor}
+                      <strong className="text-[var(--foreground)]">Applicable For:</strong> {formatApplicableFor(a)}
                     </p>
                   </div>
 

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Loader2 } from "lucide-react";
 import {
     Popover,
     PopoverContent,
@@ -60,6 +60,8 @@ const ShiftRoster = () => {
     const [editingShiftId, setEditingShiftId] = useState<string | null>(null);
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     /* 🔹 PAGINATION STATES */
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -134,6 +136,7 @@ const ShiftRoster = () => {
     /* ================= SUBMIT ================= */
 
     const handleSubmit = async () => {
+        setSubmitting(true);
         try {
             if (editingShiftId) {
                 // ✅ UPDATE SHIFT
@@ -201,12 +204,15 @@ const ShiftRoster = () => {
                     error?.response?.data?.message ||
                     "Failed to save shift. Please try again.",
             });
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const handleDelete = async () => {
         if (!editingShiftId) return;
 
+        setDeleting(true);
         try {
             const res = await axios.delete(`${API_BASE}/shifts/${editingShiftId}`, {
                 headers: {
@@ -243,6 +249,8 @@ const ShiftRoster = () => {
                     error?.response?.data?.message ||
                     "Failed to delete shift. Please try again.",
             });
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -461,18 +469,36 @@ const ShiftRoster = () => {
                                     variant="destructive"
                                     className="bg-red-500 hover:bg-red-600 mr-auto"
                                     onClick={handleDelete}
+                                    disabled={deleting || submitting}
                                 >
-                                    Delete Shift
+                                    {deleting ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Deleting...
+                                        </>
+                                    ) : (
+                                        "Delete Shift"
+                                    )}
                                 </Button>
                             )}
-                            <Button variant="outline" onClick={() => setOpen(false)}>
+                            <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting || deleting}>
                                 Cancel
                             </Button>
                             <Button
                                 className="bg-orange-500 hover:bg-orange-600"
                                 onClick={handleSubmit}
+                                disabled={submitting || deleting}
                             >
-                                {editingShiftId ? "Update Shift" : "Assign Shift"}
+                                {submitting ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        {editingShiftId ? "Updating..." : "Assigning..."}
+                                    </>
+                                ) : editingShiftId ? (
+                                    "Update Shift"
+                                ) : (
+                                    "Assign Shift"
+                                )}
                             </Button>
                         </div>
                     </div>

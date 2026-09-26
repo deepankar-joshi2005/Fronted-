@@ -710,7 +710,9 @@ export default function CompliancePage() {
     loadDashboard();
     // Only converted leads count as "active clients" (Module Scope doc,
     // Section 3) — compliance tasks are for clients, not raw leads.
-    crmApi.listLeads({ limit: 100, status: "converted" }).then(({ data }) => setClientOptions(data.data));
+    // includeHidden: clients added directly via /firm-admin/clients must stay
+    // selectable here even though their backing Lead is hidden from the CRM page.
+    crmApi.listLeads({ limit: 100, status: "converted", includeHidden: true }).then(({ data }) => setClientOptions(data.data));
     if (isAdmin) {
       staffApi.listStaff().then(({ data }) => {
         setStaffOptions([{ id: user.id, name: `${user.name} (You)` }, ...data.data.map((s) => ({ id: s.id, name: s.name }))]);

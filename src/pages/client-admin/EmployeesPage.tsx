@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Users, Pencil, Ban, Power } from "lucide-react";
+import { Users, Pencil, Ban, Power, Download, Eye } from "lucide-react";
 import * as businessClientApi from "../../api/businessClient.api.js";
 import Table from "../../components/ui/Table.jsx";
 import Button from "../../components/ui/Button.jsx";
@@ -15,28 +15,33 @@ const SANITIZERS = {
   pan: sanitizePan,
 };
 
-const EMPTY_FORM = {
-  name: "",
-  phone: "",
-  email: "",
-  designation: "",
-  dateOfJoining: "",
-  costCenter: "",
-  pan: "",
-  bankAccountNumber: "",
-  bankIfsc: "",
-  bankName: "",
-  accountHolderName: "",
-};
-
 const SOURCE_LABELS: Record<string, { label: string; variant: string }> = {
   self_registered: { label: "Self-registered", variant: "brand" },
   manual: { label: "Manual", variant: "neutral" },
   excel_import: { label: "Excel import", variant: "neutral" },
 };
 
-function EmployeeFormModal({ open, onClose, editingEmployee, onSaved }) {
-  const [form, setForm] = useState(EMPTY_FORM);
+function escapeCsvValue(value: unknown) {
+  const str = String(value ?? "");
+  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+
+function exportEmployeeIdsToCsv(employees: any[]) {
+  const rows = [["Employee Name", "Employee ID"], ...employees.map((e) => [e.name || "", e.employeeCode || ""])];
+  const csv = rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "employee-ids.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function EmployeeFormModal({ open, onClose, employee, onSaved }) {
+  const [form, setForm] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -48,27 +53,23 @@ function EmployeeFormModal({ open, onClose, editingEmployee, onSaved }) {
   };
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !employee) return;
     setError("");
     setFieldErrors({});
-    if (editingEmployee) {
-      setForm({
-        name: editingEmployee.name || "",
-        phone: editingEmployee.phone || "",
-        email: editingEmployee.email || "",
-        designation: editingEmployee.designation || "",
-        dateOfJoining: editingEmployee.dateOfJoining ? editingEmployee.dateOfJoining.slice(0, 10) : "",
-        costCenter: editingEmployee.costCenter || "",
-        pan: editingEmployee.pan || "",
-        bankAccountNumber: editingEmployee.bankAccountNumber || "",
-        bankIfsc: editingEmployee.bankIfsc || "",
-        bankName: editingEmployee.bankName || "",
-        accountHolderName: editingEmployee.accountHolderName || "",
-      });
-    } else {
-      setForm(EMPTY_FORM);
-    }
-  }, [open, editingEmployee]);
+    setForm({
+      name: employee.name || "",
+      phone: employee.phone || "",
+      email: employee.email || "",
+      designation: employee.designation || "",
+      dateOfJoining: employee.dateOfJoining ? employee.dateOfJoining.slice(0, 10) : "",
+      costCenter: employee.costCenter || "",
+      pan: employee.pan || "",
+      bankAccountNumber: employee.bankAccountNumber || "",
+      bankIfsc: employee.bankIfsc || "",
+      bankName: employee.bankName || "",
+      accountHolderName: employee.accountHolderName || "",
+    });
+  }, [open, employee]);
 
   function update(field) {
     return (e) => {
@@ -105,11 +106,7 @@ function EmployeeFormModal({ open, onClose, editingEmployee, onSaved }) {
     }
     setSubmitting(true);
     try {
-      if (editingEmployee) {
-        await businessClientApi.updateMyEmployee(editingEmployee._id, form);
-      } else {
-        await businessClientApi.createMyEmployee(form);
-      }
+      await businessClientApi.updateMyEmployee(employee._id, form);
       onSaved();
     } catch (err: any) {
       setError(err.response?.data?.message || "Could not save this employee");
@@ -122,14 +119,14 @@ function EmployeeFormModal({ open, onClose, editingEmployee, onSaved }) {
     <Modal
       open={open}
       onClose={onClose}
-      title={editingEmployee ? "Edit Employee" : "Add Employee"}
+      title="Edit Employee"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
           <Button form="employee-form" type="submit" loading={submitting}>
-            {editingEmployee ? "Save changes" : "Add Employee"}
+            Save changes
           </Button>
         </>
       }
@@ -189,11 +186,70 @@ function EmployeeFormModal({ open, onClose, editingEmployee, onSaved }) {
   );
 }
 
+function ViewField({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-text-muted">{label}</p>
+      <p className="text-sm text-heading">{value || "—"}</p>
+    </div>
+  );
+}
+
+function EmployeeViewModal({ open, onClose, employee }) {
+  if (!employee) return null;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Employee Details"
+      footer={
+        <Button variant="secondary" onClick={onClose}>
+          Close
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <ViewField label="Employee ID" value={employee.employeeCode} />
+        <ViewField label="Full Name" value={employee.name} />
+        <div className="grid grid-cols-2 gap-4">
+          <ViewField label="Phone" value={employee.phone} />
+          <ViewField label="Email" value={employee.email} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <ViewField label="Designation" value={employee.designation} />
+          <ViewField
+            label="Date of Joining"
+            value={employee.dateOfJoining ? new Date(employee.dateOfJoining).toLocaleDateString("en-IN") : ""}
+          />
+        </div>
+        <ViewField label="Cost Center" value={employee.costCenter} />
+        <div className="border-t border-border pt-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Bank &amp; ID (for payroll)</p>
+          <div className="flex flex-col gap-4">
+            <ViewField label="PAN" value={employee.pan} />
+            <div className="grid grid-cols-2 gap-4">
+              <ViewField label="Account Holder Name" value={employee.accountHolderName} />
+              <ViewField label="Bank Name" value={employee.bankName} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <ViewField label="Bank Account Number" value={employee.bankAccountNumber} />
+              <ViewField label="Bank IFSC Code" value={employee.bankIfsc} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewingEmployee, setViewingEmployee] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -266,6 +322,17 @@ export default function EmployeesPage() {
           <Button
             variant="ghost"
             size="sm"
+            title="View"
+            onClick={() => {
+              setViewingEmployee(row);
+              setViewOpen(true);
+            }}
+          >
+            <Eye size={14} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             title="Edit"
             onClick={() => {
               setEditingEmployee(row);
@@ -291,13 +358,8 @@ export default function EmployeesPage() {
             Employees who submit their details through your onboarding link show up here automatically.
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditingEmployee(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus size={16} /> Add employee
+        <Button variant="secondary" disabled={employees.length === 0} onClick={() => exportEmployeeIdsToCsv(employees)}>
+          <Download size={16} /> Export Employee IDs
         </Button>
       </div>
 
@@ -309,18 +371,7 @@ export default function EmployeesPage() {
         <EmptyState
           icon={Users}
           title="No employees yet"
-          description="Share your onboarding link (see Dashboard) or add an employee manually."
-          action={
-            <Button
-              size="sm"
-              onClick={() => {
-                setEditingEmployee(null);
-                setFormOpen(true);
-              }}
-            >
-              <Plus size={15} /> Add employee
-            </Button>
-          }
+          description="Employees who submit their details through your onboarding link (see Dashboard) will show up here."
         />
       ) : (
         <Table columns={columns} data={employees} keyField="_id" />
@@ -329,12 +380,14 @@ export default function EmployeesPage() {
       <EmployeeFormModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        editingEmployee={editingEmployee}
+        employee={editingEmployee}
         onSaved={() => {
           setFormOpen(false);
           load();
         }}
       />
+
+      <EmployeeViewModal open={viewOpen} onClose={() => setViewOpen(false)} employee={viewingEmployee} />
     </div>
   );
 }

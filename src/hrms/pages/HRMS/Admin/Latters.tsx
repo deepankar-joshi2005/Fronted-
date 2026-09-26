@@ -147,6 +147,7 @@ const Letters = () => {
   const fetchUsers = async () => {
     try {
       const res = await axios.get(`${API_BASE}/users`, {
+        params: { excludeRoles: "superadmin" },
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       setUsers(res.data.data || res.data); // Handle both paginated and non-paginated user fetch safely

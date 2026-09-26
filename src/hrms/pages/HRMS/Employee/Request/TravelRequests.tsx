@@ -26,7 +26,7 @@ const TravelRequests = () => {
 
   const fetchRequests = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/travel-requests`, {
+      const res = await axios.get(`${API_BASE}/travel-requests/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRequests(res.data || []);
