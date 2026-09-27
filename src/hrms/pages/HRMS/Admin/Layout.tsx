@@ -418,9 +418,6 @@ function SuperAdminLayoutInner({ children }: HRMSAdminLayoutProps) {
             <SidebarNavItem to="/hrms/SuperAdmin/training/trainees" icon={Users}>
               Trainees
             </SidebarNavItem>
-            <SidebarNavItem to="/hrms/SuperAdmin/training/posh" icon={ShieldCheck}>
-              POSH
-            </SidebarNavItem>
           </CollapsibleSidebarGroup>
 
           {/* 4. Attendance Management */}
