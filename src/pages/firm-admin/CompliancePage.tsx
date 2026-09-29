@@ -673,6 +673,9 @@ function DeleteTaskModal({ task, onClose, onDeleted }) {
 export default function CompliancePage() {
   const { user } = useAuth();
   const isAdmin = user?.role === ROLES.CA_FIRM_ADMIN;
+  const canAdd = isAdmin || !!user?.permissions?.compliance?.add;
+  const canEdit = isAdmin || !!user?.permissions?.compliance?.edit;
+  const canDelete = isAdmin || !!user?.permissions?.compliance?.delete;
 
   const [dashboard, setDashboard] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -768,16 +771,17 @@ export default function CompliancePage() {
           <Button variant="ghost" size="sm" title="Update status" onClick={() => setStatusTask(row)}>
             <RefreshCw size={14} />
           </Button>
-          {isAdmin ? (
-            <>
-              <Button variant="ghost" size="sm" title="Edit" onClick={() => setEditTask(row)}>
-                <Pencil size={14} />
-              </Button>
-              <Button variant="ghost" size="sm" title="Delete" onClick={() => setDeleteTarget(row)}>
-                <Trash2 size={14} className="text-danger" />
-              </Button>
-            </>
-          ) : (
+          {canEdit && (
+            <Button variant="ghost" size="sm" title="Edit" onClick={() => setEditTask(row)}>
+              <Pencil size={14} />
+            </Button>
+          )}
+          {canDelete && (
+            <Button variant="ghost" size="sm" title="Delete" onClick={() => setDeleteTarget(row)}>
+              <Trash2 size={14} className="text-danger" />
+            </Button>
+          )}
+          {!isAdmin && (
             <Button variant="ghost" size="sm" title="Upload document" onClick={() => setDocumentsTask(row)}>
               <Upload size={14} />
             </Button>
@@ -794,9 +798,11 @@ export default function CompliancePage() {
           <h1 className="text-2xl font-bold text-heading">Compliance Tool</h1>
           <p className="mt-1 text-sm text-text-muted">Track statutory filings and deadlines per client.</p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus size={16} /> Add task
-        </Button>
+        {canAdd && (
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus size={16} /> Add task
+          </Button>
+        )}
       </div>
 
       {dashboard && (
@@ -887,9 +893,11 @@ export default function CompliancePage() {
           title="No compliance tasks yet"
           description="Add a task for one of your clients to start tracking deadlines."
           action={
-            <Button onClick={() => setModalOpen(true)} size="sm">
-              <Plus size={15} /> Add task
-            </Button>
+            canAdd && (
+              <Button onClick={() => setModalOpen(true)} size="sm">
+                <Plus size={15} /> Add task
+              </Button>
+            )
           }
         />
       ) : (

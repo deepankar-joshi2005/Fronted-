@@ -6,6 +6,7 @@ import Login from "../pages/Auth/Login";
 import SsoLanding from "../pages/Auth/SsoLanding";
 import Setup from "../pages/Auth/Setup";
 import ResetPassword from "../pages/Auth/ResetPassword";
+import PayrollApproval from "../pages/Auth/PayrollApproval";
 import CompanyRegistration from "../pages/Auth/CompanyRegistration";
 import NotFound from "../pages/NotFound";
 import LandingPage from "../pages/LandingPage";
@@ -277,6 +278,7 @@ export default function AppRouter() {
         <Route path="/setup/:token" element={<Setup />} />
         <Route path="/register" element={<CompanyRegistration />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/payroll-approval/:token" element={<PayrollApproval />} />
 
 
         {/* HRMS */}

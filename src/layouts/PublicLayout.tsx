@@ -25,7 +25,7 @@ export default function PublicLayout() {
           </Link>
           <Link
             to="/signup"
-            className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-accent-fg shadow-md shadow-accent/25 transition-all hover:bg-accent-hover hover:shadow-lg hover:shadow-accent/35"
+            className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-brand-fg shadow-md shadow-brand/25 transition-all hover:bg-brand-hover hover:shadow-lg hover:shadow-brand/35"
           >
             Start free trial
           </Link>

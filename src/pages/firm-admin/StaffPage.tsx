@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Users as UsersIcon, KeyRound, Copy, Check } from "lucide-react";
+import { Plus, Users as UsersIcon, KeyRound, Copy, Check, Eye, Trash2 } from "lucide-react";
 import * as staffApi from "../../api/staff.api.js";
 import Card from "../../components/ui/Card.jsx";
 import Input from "../../components/ui/Input.jsx";
@@ -9,13 +9,78 @@ import Badge from "../../components/ui/Badge.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import Switch from "../../components/ui/Switch.jsx";
 import { sanitizePhone, validatePhone, validateEmail } from "../../utils/validators.js";
+import { STAFF_MODULES, DEFAULT_MODULE_PERMISSIONS } from "../../config/modulePermissions.js";
 
-const INITIAL_FORM = { name: "", email: "", phone: "", designation: "", icaiMembershipNo: "", password: "" };
+function clonePermissions(source) {
+  const base = source || DEFAULT_MODULE_PERMISSIONS;
+  return STAFF_MODULES.reduce((acc, m) => {
+    acc[m.key] = { ...DEFAULT_MODULE_PERMISSIONS[m.key], ...base[m.key] };
+    return acc;
+  }, {});
+}
+
+const INITIAL_FORM = {
+  name: "",
+  email: "",
+  phone: "",
+  designation: "",
+  icaiMembershipNo: "",
+  password: "",
+  permissions: clonePermissions(),
+};
 
 const SANITIZERS = {
   phone: sanitizePhone,
 };
+
+function ModulePermissionFields({ permissions, onChange }) {
+  function updateModule(moduleKey, patch) {
+    onChange({ ...permissions, [moduleKey]: { ...permissions[moduleKey], ...patch } });
+  }
+
+  return (
+    <div>
+      <p className="text-sm font-medium text-text">Module permissions</p>
+      <p className="mt-0.5 text-xs text-text-muted">
+        Only enabled modules show up in this staff member's sidebar. Add/edit/delete control what they can do inside
+        each one.
+      </p>
+      <div className="mt-3 flex flex-col gap-3">
+        {STAFF_MODULES.map(({ key, label }) => {
+          const mod = permissions[key] || DEFAULT_MODULE_PERMISSIONS[key];
+          return (
+            <div key={key} className="rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-text">{label}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-text-muted">{mod.enabled ? "Shown" : "Hidden"}</span>
+                  <Switch checked={!!mod.enabled} onChange={(checked) => updateModule(key, { enabled: checked })} />
+                </div>
+              </div>
+              {mod.enabled && (
+                <div className="mt-3 flex flex-wrap gap-4">
+                  {["add", "edit", "delete"].map((action) => (
+                    <label key={action} className="flex items-center gap-2 text-sm text-text">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-border"
+                        checked={!!mod[action]}
+                        onChange={(e) => updateModule(key, { [action]: e.target.checked })}
+                      />
+                      {action === "add" ? "Add" : action === "edit" ? "Edit" : "Delete"}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function TempPasswordModal({ title, email, name, tempPassword, onClose }) {
   const [copied, setCopied] = useState(false);
@@ -62,6 +127,7 @@ function EditStaffModal({ staff, onClose, onSaved }) {
     designation: staff.designation || "",
     icaiMembershipNo: staff.icaiMembershipNo || "",
   });
+  const [permissions, setPermissions] = useState(clonePermissions(staff.permissions));
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -102,7 +168,7 @@ function EditStaffModal({ staff, onClose, onSaved }) {
     }
     setSubmitting(true);
     try {
-      await staffApi.updateStaff(staff.id, form);
+      await staffApi.updateStaff(staff.id, { ...form, permissions });
       onSaved();
     } catch (err) {
       setError(err.response?.data?.message || "Could not update staff member");
@@ -166,6 +232,7 @@ function EditStaffModal({ staff, onClose, onSaved }) {
           placeholder="Optional — e.g. 123456"
           maxLength={7}
         />
+        <ModulePermissionFields permissions={permissions} onChange={setPermissions} />
       </form>
     </Modal>
   );
@@ -225,6 +292,108 @@ function ResetStaffPasswordModal({ staff, onClose, onDone }) {
   );
 }
 
+function ViewStaffModal({ staff, onClose }) {
+  const permissions = clonePermissions(staff.permissions);
+
+  return (
+    <Modal open onClose={onClose} title={staff.name} size="lg" footer={<Button onClick={onClose}>Close</Button>}>
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs font-medium text-text-muted">Email</p>
+            <p className="text-sm text-text">{staff.email}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-text-muted">Phone</p>
+            <p className="text-sm text-text">{staff.phone || "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-text-muted">Designation</p>
+            <p className="text-sm text-text">{staff.designation || "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-text-muted">ICAI membership no.</p>
+            <p className="text-sm text-text">{staff.icaiMembershipNo || "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-text-muted">Status</p>
+            <Badge variant={staff.isActive ? "success" : "danger"}>{staff.isActive ? "Active" : "Disabled"}</Badge>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-text">Module permissions</p>
+          <div className="mt-2 flex flex-col gap-2">
+            {STAFF_MODULES.map(({ key, label }) => {
+              const mod = permissions[key];
+              return (
+                <div key={key} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                  <p className="text-sm text-text">{label}</p>
+                  {mod.enabled ? (
+                    <div className="flex gap-1.5">
+                      {mod.add && <Badge variant="neutral">Add</Badge>}
+                      {mod.edit && <Badge variant="neutral">Edit</Badge>}
+                      {mod.delete && <Badge variant="neutral">Delete</Badge>}
+                      {!mod.add && !mod.edit && !mod.delete && <Badge variant="neutral">View only</Badge>}
+                    </div>
+                  ) : (
+                    <Badge variant="danger">Hidden</Badge>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function DeleteStaffModal({ staff, onClose, onDeleted }) {
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError("");
+    try {
+      await staffApi.deleteStaff(staff.id);
+      onDeleted();
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not delete this staff member");
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Delete staff member"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={handleDelete} loading={deleting}>
+            Delete
+          </Button>
+        </>
+      }
+    >
+      {error && (
+        <div className="mb-3 rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2.5 text-sm text-danger">
+          {error}
+        </div>
+      )}
+      <p className="text-sm text-text-muted">
+        Delete <strong className="text-text">{staff.name}</strong>? Their account will be removed and they will no
+        longer be able to log in. This cannot be undone.
+      </p>
+    </Modal>
+  );
+}
+
 export default function StaffPage() {
   const [staff, setStaff] = useState([]);
   const [seats, setSeats] = useState({ used: 0, limit: null });
@@ -237,6 +406,8 @@ export default function StaffPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [createdResult, setCreatedResult] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
+  const [viewTarget, setViewTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [resetTarget, setResetTarget] = useState(null);
   const [resetTempPassword, setResetTempPassword] = useState(null);
 
@@ -298,7 +469,7 @@ export default function StaffPage() {
       if (!payload.password) delete payload.password;
       const { data } = await staffApi.createStaff(payload);
       setModalOpen(false);
-      setForm(INITIAL_FORM);
+      setForm({ ...INITIAL_FORM, permissions: clonePermissions() });
       setFieldErrors({});
       setCreatedResult(data.data);
       load();
@@ -339,6 +510,9 @@ export default function StaffPage() {
       label: "",
       render: (row) => (
         <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" title="View" onClick={() => setViewTarget(row)}>
+            <Eye size={14} />
+          </Button>
           <Button variant="ghost" size="sm" title="Edit" onClick={() => setEditTarget(row)}>
             Edit
           </Button>
@@ -347,6 +521,9 @@ export default function StaffPage() {
           </Button>
           <Button variant="ghost" size="sm" onClick={() => handleToggleActive(row)}>
             {row.isActive ? "Disable" : "Enable"}
+          </Button>
+          <Button variant="ghost" size="sm" title="Delete" onClick={() => setDeleteTarget(row)}>
+            <Trash2 size={14} className="text-danger" />
           </Button>
         </div>
       ),
@@ -470,6 +647,10 @@ export default function StaffPage() {
             onChange={update("password")}
             placeholder="Leave blank to auto-generate and email a temporary password"
           />
+          <ModulePermissionFields
+            permissions={form.permissions}
+            onChange={(permissions) => setForm((f) => ({ ...f, permissions }))}
+          />
         </form>
       </Modal>
 
@@ -489,6 +670,19 @@ export default function StaffPage() {
           onClose={() => setEditTarget(null)}
           onSaved={() => {
             setEditTarget(null);
+            load();
+          }}
+        />
+      )}
+
+      {viewTarget && <ViewStaffModal staff={viewTarget} onClose={() => setViewTarget(null)} />}
+
+      {deleteTarget && (
+        <DeleteStaffModal
+          staff={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={() => {
+            setDeleteTarget(null);
             load();
           }}
         />

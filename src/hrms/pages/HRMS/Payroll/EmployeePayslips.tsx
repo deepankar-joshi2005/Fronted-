@@ -100,7 +100,7 @@ const EmployeePayslips = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-orange-50 text-orange-700 px-4 py-2.5 rounded-xl border border-orange-100 shadow-sm">
+        <div className="flex items-center gap-3 bg-blue-50 text-blue-700 px-4 py-2.5 rounded-xl border border-blue-100 shadow-sm">
           <Building2 size={18} />
           <span className="font-semibold text-sm">{company}</span>
         </div>
@@ -113,7 +113,7 @@ const EmployeePayslips = () => {
         </div>
 
         <select
-          className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-orange-500 outline-none transition-all min-w-[140px]"
+          className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-blue-500 outline-none transition-all min-w-[140px]"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
         >
@@ -128,7 +128,7 @@ const EmployeePayslips = () => {
         </select>
 
         <select
-          className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-orange-500 outline-none transition-all min-w-[120px]"
+          className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-blue-500 outline-none transition-all min-w-[120px]"
           value={year}
           onChange={(e) => setYear(e.target.value)}
         >
@@ -143,7 +143,7 @@ const EmployeePayslips = () => {
         {(month || year) && (
           <button
             onClick={() => { setMonth(""); setYear(""); }}
-            className="text-xs font-bold text-orange-500 hover:text-orange-600 transition-colors uppercase px-2"
+            className="text-xs font-bold text-blue-500 hover:text-blue-600 transition-colors uppercase px-2"
           >
             Clear Filters
           </button>
@@ -156,14 +156,14 @@ const EmployeePayslips = () => {
           {filtered.map((p) => (
             <div
               key={p._id}
-              className="group bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-orange-200 transition-all p-6 overflow-hidden relative"
+              className="group bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all p-6 overflow-hidden relative"
             >
               {/* ACCENT STRIP */}
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-orange-500 opacity-80" />
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-blue-500 opacity-80" />
 
               {/* CARD HEADER */}
               <div className="flex justify-between items-start mb-6">
-                <div className="bg-orange-50 p-3 rounded-2xl text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-colors">
+                <div className="bg-blue-50 p-3 rounded-2xl text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
                   <Building2 size={24} />
                 </div>
                 <div className="flex flex-col items-end">
@@ -184,11 +184,11 @@ const EmployeePayslips = () => {
               </div>
 
               {/* AMOUNT */}
-              <div className="bg-gray-50 rounded-2xl p-4 mb-6 group-hover:bg-orange-50 transition-colors">
+              <div className="bg-gray-50 rounded-2xl p-4 mb-6 group-hover:bg-blue-50 transition-colors">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Net Take Home</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-lg font-bold text-gray-900 group-hover:text-orange-700 transition-colors">₹</span>
-                  <span className="text-3xl font-black text-gray-900 group-hover:text-orange-700 transition-colors">
+                  <span className="text-lg font-bold text-gray-900 group-hover:text-blue-700 transition-colors">₹</span>
+                  <span className="text-3xl font-black text-gray-900 group-hover:text-blue-700 transition-colors">
                     {p.netSalary?.toLocaleString()}
                   </span>
                 </div>
@@ -205,7 +205,7 @@ const EmployeePayslips = () => {
 
                 <button
                   onClick={() => downloadPayslip(p._id, p.month)}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-orange-500 text-white text-sm font-bold shadow-lg shadow-orange-500/20 hover:bg-orange-600 hover:-translate-y-0.5 transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-500 text-white text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-600 hover:-translate-y-0.5 transition-all"
                 >
                   <Download size={16} /> Get PDF
                 </button>
@@ -225,7 +225,7 @@ const EmployeePayslips = () => {
           {(month || year) && (
             <button
               onClick={() => { setMonth(""); setYear(""); }}
-              className="mt-6 text-orange-500 font-bold text-sm hover:underline"
+              className="mt-6 text-blue-500 font-bold text-sm hover:underline"
             >
               Clear all filters
             </button>

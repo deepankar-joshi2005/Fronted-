@@ -74,6 +74,8 @@ const INITIAL_FORM = {
   useHrms: true,
   adminPassword: "",
   planTierId: "",
+  ownerEmail: "",
+  ownerPassword: "",
 };
 
 function Field({ label, required = false, hint = null, children }) {
@@ -272,6 +274,8 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
         pincode: editingClient.pincode || "",
         services: editingClient.services || [],
         useHrms: editingClient.useHrms !== false,
+        ownerEmail: editingClient.ownerEmail || "",
+        ownerPassword: "",
       });
     } else {
       setForm(INITIAL_FORM);
@@ -505,6 +509,29 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
                 placeholder="Leave blank to auto-generate and email a temporary password"
               />
               {form.useHrms && (
+                <>
+                  <Input
+                    label="Business owner email"
+                    type="email"
+                    value={form.ownerEmail}
+                    onChange={update("ownerEmail")}
+                    placeholder="owner@company.com"
+                  />
+                  <Input
+                    label="Business owner password"
+                    type="text"
+                    minLength={8}
+                    value={form.ownerPassword}
+                    onChange={update("ownerPassword")}
+                    placeholder="Leave blank to disable payroll owner-approval"
+                  />
+                  <p className="-mt-2 text-xs text-text-muted">
+                    Optional. When both are set, HR's monthly "Run Payroll" sends this owner a
+                    password-protected link to review and approve payroll before it's processed.
+                  </p>
+                </>
+              )}
+              {form.useHrms && (
                 <Field label="HRMS plan" hint="Optional — leave unselected and the client will be asked to subscribe after they log in.">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {planTiers.map((tier) => (
@@ -538,6 +565,29 @@ function ClientFormModal({ open, onClose, editingClient, onSaved }) {
               <strong className="text-text">{editingClient.useHrms !== false ? "enabled" : "not enabled"}</strong> for
               this client.
             </p>
+            {editingClient.useHrms !== false && (
+              <div className="mt-3 flex flex-col gap-3">
+                <Input
+                  label="Business owner email"
+                  type="email"
+                  value={form.ownerEmail}
+                  onChange={update("ownerEmail")}
+                  placeholder="owner@company.com"
+                />
+                <Input
+                  label="Business owner password"
+                  type="text"
+                  minLength={8}
+                  value={form.ownerPassword}
+                  onChange={update("ownerPassword")}
+                  placeholder="Leave blank to keep the current password unchanged"
+                />
+                <p className="-mt-2 text-xs text-text-muted">
+                  Optional. When both are set, HR's monthly "Run Payroll" sends this owner a
+                  password-protected link to review and approve payroll before it's processed.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </form>

@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { LeadMentorForm } from "./LeadMentorForm";
 import { toast } from "../Alert/Toast";
-import { Eye, EyeOff, Upload, Download, X, FileText, AlertCircle, CheckCircle2, Camera, User } from "lucide-react";
+import Loader from "../Loader";
+import { Eye, EyeOff, Upload, Download, X, FileText, AlertCircle, CheckCircle2, Camera, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isValidEmail, getPhoneNumberError } from "@/utils/validation";
 
@@ -325,7 +326,13 @@ export default function AddUser() {
 
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="relative p-4 sm:p-6 lg:p-8 space-y-6">
+      {loading && (
+        <div className="fixed inset-0 z-[100] bg-black/10 backdrop-blur-[1px]">
+          <Loader />
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -728,7 +735,7 @@ export default function AddUser() {
             >
               <option value="">Select Role</option>
 
-              {roles.map((role) => (
+              {roles.filter((role) => !["hr-admin", "hradmin", "hr admin"].includes(role.name.toLowerCase())).map((role) => (
                 <option key={role._id} value={role.name}>
                   {formatRole(role.name)}
                 </option>
@@ -816,7 +823,14 @@ export default function AddUser() {
           disabled={loading}
           className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[var(--primary)] to-[#7C3AED] px-8 py-2.5 text-sm font-semibold text-white shadow-premium-sm transition-opacity hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none"
         >
-          Add User
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Adding...
+            </>
+          ) : (
+            "Add User"
+          )}
         </button>
       </div>
 

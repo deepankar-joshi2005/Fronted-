@@ -15,6 +15,7 @@ import LoginPage from "../pages/public/LoginPage.jsx";
 import SignupPage from "../pages/public/SignupPage.jsx";
 import NotFoundPage from "../pages/public/NotFoundPage.jsx";
 import PublicEmployeeFormPage from "../pages/public/PublicEmployeeFormPage.jsx";
+import DevPreviewPage from "../pages/public/DevPreviewPage.jsx";
 
 import DashboardHome from "../pages/dashboard/DashboardHome.jsx";
 import ComingSoonPage from "../pages/dashboard/ComingSoonPage.jsx";
@@ -28,6 +29,7 @@ import ClientEmployeeDetailsPage from "../pages/firm-admin/payroll/ClientEmploye
 import ClientPaymentFilePage from "../pages/firm-admin/payroll/ClientPaymentFilePage.jsx";
 import PayrollManagementPage from "../pages/firm-admin/payroll/PayrollManagementPage.jsx";
 import UsersPage from "../pages/super-admin/UsersPage.jsx";
+import ReportsPage from "../pages/super-admin/ReportsPage.jsx";
 import BillingPage from "../pages/super-admin/BillingPage.jsx";
 import SuperAdminSupportPage from "../pages/super-admin/SupportPage.jsx";
 import AuditLogsPage from "../pages/super-admin/AuditLogsPage.jsx";
@@ -97,6 +99,7 @@ export default function AppRoutes() {
       />
 
       <Route path="/onboard/:token" element={<PublicEmployeeFormPage />} />
+      <Route path="/dev-preview-switch" element={<DevPreviewPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/:roleBase" element={<RoleBaseRoute />}>
@@ -107,6 +110,7 @@ export default function AppRoutes() {
               <Route path="ca-firms" element={<CaFirmsPage />} />
               <Route path="business-clients" element={<BusinessClientsPage />} />
               <Route path="users" element={<UsersPage />} />
+              <Route path="reports" element={<ReportsPage />} />
               <Route path="billing" element={<BillingPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="settings" element={<SettingsPage />} />

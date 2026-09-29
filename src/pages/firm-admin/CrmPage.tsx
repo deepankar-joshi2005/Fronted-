@@ -977,7 +977,7 @@ function ProvisionModal({ lead, initialMode = "hrms", onClose, onDone }) {
 
 // ── Client card (converted leads) ───────────────────────────────────────────
 
-function ClientCard({ lead, isAdmin, onEdit, onDelete, onProvision, onProvisionNonHrms, onChanged }) {
+function ClientCard({ lead, isAdmin, canEdit, canDelete, onEdit, onDelete, onProvision, onProvisionNonHrms, onChanged }) {
   const [notesModalOpen, setNotesModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
@@ -1026,10 +1026,12 @@ function ClientCard({ lead, isAdmin, onEdit, onDelete, onProvision, onProvisionN
         >
           <History size={12} /> History
         </button>
-        <Button variant="ghost" size="sm" onClick={() => onEdit(lead)} aria-label="Edit client">
-          <Pencil size={14} />
-        </Button>
-        {isAdmin && (
+        {canEdit && (
+          <Button variant="ghost" size="sm" onClick={() => onEdit(lead)} aria-label="Edit client">
+            <Pencil size={14} />
+          </Button>
+        )}
+        {canDelete && (
           <Button variant="ghost" size="sm" onClick={() => onDelete(lead)} aria-label="Delete client">
             <Trash2 size={14} className="text-danger" />
           </Button>
@@ -1060,7 +1062,7 @@ function ClientCard({ lead, isAdmin, onEdit, onDelete, onProvision, onProvisionN
 
 // ── Lead card ────────────────────────────────────────────────────────────────
 
-function LeadCard({ lead, isAdmin, onEdit, onDelete, onChanged }) {
+function LeadCard({ lead, canEdit, canDelete, onEdit, onDelete, onChanged }) {
   const [stageModalOpen, setStageModalOpen] = useState(false);
   const [disqualifyModalOpen, setDisqualifyModalOpen] = useState(false);
   const [followUpModalOpen, setFollowUpModalOpen] = useState(false);
@@ -1084,10 +1086,12 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onChanged }) {
   return (
     <Card className="relative p-4">
       <div className="absolute right-4 top-4 flex gap-1">
-        <Button variant="ghost" size="sm" onClick={() => onEdit(lead)} aria-label="Edit lead">
-          <Pencil size={14} />
-        </Button>
-        {isAdmin && (
+        {canEdit && (
+          <Button variant="ghost" size="sm" onClick={() => onEdit(lead)} aria-label="Edit lead">
+            <Pencil size={14} />
+          </Button>
+        )}
+        {canDelete && (
           <Button variant="ghost" size="sm" onClick={() => onDelete(lead)} aria-label="Delete lead">
             <Trash2 size={14} className="text-danger" />
           </Button>
@@ -1273,6 +1277,9 @@ const PIPELINE_STATUSES = ["new", "contacted", "qualified", "converted", "lost"]
 export default function CrmPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === ROLES.CA_FIRM_ADMIN;
+  const canAdd = isAdmin || !!user?.permissions?.crm?.add;
+  const canEdit = isAdmin || !!user?.permissions?.crm?.edit;
+  const canDelete = isAdmin || !!user?.permissions?.crm?.delete;
 
   const [tab, setTab] = useState("pipeline");
 
@@ -1282,6 +1289,8 @@ export default function CrmPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const [clients, setClients] = useState([]);
   const [clientsLoading, setClientsLoading] = useState(true);
@@ -1293,12 +1302,14 @@ export default function CrmPage() {
   const [editingLead, setEditingLead] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  async function loadLeads(searchTerm = search, statusValue = status) {
+  async function loadLeads(searchTerm = search, statusValue = status, fromValue = dateFrom, toValue = dateTo) {
     setLoading(true);
     try {
       const params = {};
       if (searchTerm) params.search = searchTerm;
       if (statusValue) params.status = statusValue;
+      if (fromValue) params.dateFrom = fromValue;
+      if (toValue) params.dateTo = toValue;
       const { data } = await crmApi.listLeads(params);
       setLeads(data.data);
     } finally {
@@ -1335,9 +1346,14 @@ export default function CrmPage() {
   }, []);
 
   useEffect(() => {
-    loadLeads(search, status);
+    loadLeads(search, status, dateFrom, dateTo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [status, dateFrom, dateTo]);
+
+  function clearDateRange() {
+    setDateFrom("");
+    setDateTo("");
+  }
 
   function refreshAll() {
     loadLeads();
@@ -1361,9 +1377,11 @@ export default function CrmPage() {
           <h1 className="text-2xl font-bold text-heading">CRM</h1>
           <p className="mt-1 text-sm text-text-muted">Track every lead from first contact to won or lost.</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus size={16} /> Add Lead
-        </Button>
+        {canAdd && (
+          <Button onClick={openCreate}>
+            <Plus size={16} /> Add Lead
+          </Button>
+        )}
       </div>
 
       {dashboard && (
@@ -1440,6 +1458,19 @@ export default function CrmPage() {
                   ))}
                 </Select>
               </div>
+              <div className="flex items-end gap-2">
+                <div className="sm:w-40">
+                  <Input label="From" type="date" value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} />
+                </div>
+                <div className="sm:w-40">
+                  <Input label="To" type="date" value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} />
+                </div>
+                {(dateFrom || dateTo) && (
+                  <Button type="button" variant="secondary" onClick={clearDateRange}>
+                    Clear dates
+                  </Button>
+                )}
+              </div>
             </div>
           </Card>
 
@@ -1454,7 +1485,15 @@ export default function CrmPage() {
           ) : (
             <div className="flex flex-col gap-3">
               {leads.map((lead) => (
-                <LeadCard key={lead._id} lead={lead} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} onChanged={refreshAll} />
+                <LeadCard
+                  key={lead._id}
+                  lead={lead}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onEdit={openEdit}
+                  onDelete={setDeleteTarget}
+                  onChanged={refreshAll}
+                />
               ))}
             </div>
           )}
@@ -1492,6 +1531,8 @@ export default function CrmPage() {
                   key={lead._id}
                   lead={lead}
                   isAdmin={isAdmin}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
                   onEdit={openEdit}
                   onDelete={setDeleteTarget}
                   onProvision={(l) => {

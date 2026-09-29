@@ -6,7 +6,7 @@ const ViewPayslipModal = ({ data, onClose, onDownload }: any) => {
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-all">
       <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* HEADER */}
-        <div className="bg-orange-500 p-6 text-white relative">
+        <div className="bg-blue-500 p-6 text-white relative">
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
@@ -14,7 +14,7 @@ const ViewPayslipModal = ({ data, onClose, onDownload }: any) => {
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
           
-          <p className="text-orange-100 text-[10px] font-bold uppercase tracking-widest mb-1">Electronic Salary Slip</p>
+          <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mb-1">Electronic Salary Slip</p>
           <h3 className="text-2xl font-black">
             {new Date(data.month).toLocaleString("default", {
               month: "long",
@@ -60,9 +60,9 @@ const ViewPayslipModal = ({ data, onClose, onDownload }: any) => {
             </div>
 
             {/* TOTAL */}
-            <div className="bg-orange-50 rounded-2xl p-4 flex justify-between items-center border border-orange-100 shadow-inner">
-              <span className="text-sm font-bold text-orange-800 uppercase tracking-wider">Net Amount</span>
-              <span className="text-xl font-black text-orange-600">₹{data.netSalary?.toLocaleString()}</span>
+            <div className="bg-blue-50 rounded-2xl p-4 flex justify-between items-center border border-blue-100 shadow-inner">
+              <span className="text-sm font-bold text-blue-800 uppercase tracking-wider">Net Amount</span>
+              <span className="text-xl font-black text-blue-600">₹{data.netSalary?.toLocaleString()}</span>
             </div>
           </div>
 
@@ -76,7 +76,7 @@ const ViewPayslipModal = ({ data, onClose, onDownload }: any) => {
             </button>
             <button
               onClick={onDownload}
-              className="flex-[2] py-3 px-4 rounded-xl bg-orange-500 text-white text-sm font-bold shadow-lg shadow-orange-500/20 hover:bg-orange-600 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+              className="flex-[2] py-3 px-4 rounded-xl bg-blue-500 text-white text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-600 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
               Download PDF

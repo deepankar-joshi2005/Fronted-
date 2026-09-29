@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bell, AlertTriangle, CheckCheck } from "lucide-react";
 import * as notificationApi from "../../api/notification.api.js";
+import { useAuth } from "../../hooks/useAuth.js";
 
 const TYPE_DOT = {
   expiry: "bg-warning",
@@ -27,6 +29,8 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const ref = useRef(null);
+  const navigate = useNavigate();
+  const { basePath } = useAuth();
 
   async function load() {
     const { data } = await notificationApi.getMyNotifications();
@@ -52,6 +56,10 @@ export default function NotificationBell() {
     if (n.kind === "notification" && !n.isRead) {
       await notificationApi.markNotificationRead(n._id);
       load();
+    }
+    setOpen(false);
+    if (n.link || n.link === "") {
+      navigate(n.link ? `${basePath}/${n.link}` : basePath);
     }
   }
 

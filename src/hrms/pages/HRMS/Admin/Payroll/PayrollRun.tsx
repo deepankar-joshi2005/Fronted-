@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   XCircle,
   CalendarDays,
+  MailCheck,
 } from "lucide-react";
 import Loader from "../../Loader";
 import { toast } from "../../Alert/Toast";
@@ -23,7 +24,7 @@ import { cn } from "@/lib/utils";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
-type RunStatus = "Draft" | "Processing" | "Completed" | "Cancelled";
+type RunStatus = "Draft" | "PendingOwnerApproval" | "Processing" | "Completed" | "Cancelled";
 
 interface PayrollRunRow {
   _id: string;
@@ -44,6 +45,10 @@ interface PayrollRunRow {
 
 const statusTone: Record<RunStatus, { bg: string; text: string }> = {
   Draft: { bg: "bg-[var(--muted)]", text: "text-[var(--muted-foreground)]" },
+  PendingOwnerApproval: {
+    bg: "bg-[color-mix(in_oklab,var(--status-warning)_14%,transparent)]",
+    text: "text-[var(--status-warning)]",
+  },
   Processing: {
     bg: "bg-[color-mix(in_oklab,var(--status-warning)_14%,transparent)]",
     text: "text-[var(--status-warning)]",
@@ -70,6 +75,7 @@ const monthYearLabel = (month: string) => {
 const TABS: { key: "All" | RunStatus; label: string; icon: React.ElementType }[] = [
   { key: "All", label: "All", icon: LayoutGrid },
   { key: "Draft", label: "Draft", icon: FileText },
+  { key: "PendingOwnerApproval", label: "Awaiting Owner", icon: MailCheck },
   { key: "Processing", label: "Processing", icon: PlayCircle },
   { key: "Completed", label: "Completed", icon: CheckCircle2 },
   { key: "Cancelled", label: "Cancelled", icon: XCircle },
@@ -114,16 +120,18 @@ const PayrollRun = () => {
   }, []);
 
   const currentRun = useMemo(() => runs.find((r) => r.month === currentMonth), [runs, currentMonth]);
-  const canRunCurrentMonth = !currentRun || currentRun.status === "Draft" || currentRun.status === "Cancelled";
+  const canRunCurrentMonth =
+    !currentRun || ["Draft", "Cancelled", "PendingOwnerApproval"].includes(currentRun.status);
 
   const runCurrentMonth = async () => {
     setRunning(true);
     try {
-      await axios.post(`${API_BASE}/payroll/runs/${currentMonth}/run`, {}, { headers });
+      const res = await axios.post(`${API_BASE}/payroll/runs/${currentMonth}/run`, {}, { headers });
       toast({
         type: "success",
-        title: "Payroll Processed",
-        message: `Payroll run started for ${monthYearLabel(currentMonth)}.`,
+        title: res.data?.pendingOwnerApproval ? "Sent for Owner Approval" : "Payroll Processed",
+        message:
+          res.data?.message || `Payroll run started for ${monthYearLabel(currentMonth)}.`,
       });
       fetchRuns();
     } catch (error: any) {
@@ -165,6 +173,7 @@ const PayrollRun = () => {
     const base: Record<"All" | RunStatus, number> = {
       All: runs.length,
       Draft: 0,
+      PendingOwnerApproval: 0,
       Processing: 0,
       Completed: 0,
       Cancelled: 0,
@@ -230,8 +239,18 @@ const PayrollRun = () => {
             disabled={running || !currentRun}
             className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[var(--primary)] to-[#7C3AED] px-4 py-2.5 text-sm font-medium text-white shadow-premium-sm transition-opacity hover:opacity-90 disabled:opacity-60"
           >
-            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
-            {running ? "Running..." : "Run Payroll"}
+            {running ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : currentRun?.status === "PendingOwnerApproval" ? (
+              <MailCheck className="h-4 w-4" />
+            ) : (
+              <PlayCircle className="h-4 w-4" />
+            )}
+            {running
+              ? "Running..."
+              : currentRun?.status === "PendingOwnerApproval"
+              ? "Resend Approval Email"
+              : "Run Payroll"}
           </button>
         ) : (
           <span

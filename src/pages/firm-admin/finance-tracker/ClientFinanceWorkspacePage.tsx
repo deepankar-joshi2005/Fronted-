@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
+import { jsPDF } from "jspdf";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   ArrowLeft,
@@ -16,6 +17,9 @@ import {
   Landmark,
   Activity,
   Banknote,
+  Download,
+  Send,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import * as financeTrackerApi from "../../../api/financeTracker.api";
 import { useAuth } from "../../../hooks/useAuth";
@@ -28,6 +32,7 @@ import Button from "../../../components/ui/Button.jsx";
 import Switch from "../../../components/ui/Switch.jsx";
 import Spinner from "../../../components/ui/Spinner.jsx";
 import ChartTooltip from "../../../components/ui/ChartTooltip.jsx";
+import DonutChart from "../../../components/ui/DonutChart.jsx";
 
 const STEPS = ["Personal", "Professional & Income", "Current Loans", "Monthly Expenses", "Savings"];
 const CONTACT_SANITIZERS: Record<string, (v: string) => string> = {
@@ -40,6 +45,20 @@ const CONTACT_VALIDATORS: Record<string, (v: string) => string> = {
   gstin: (v) => validateGstin(v, false),
 };
 const HEALTH_VARIANT: Record<string, string> = { Excellent: "success", Good: "brand", Moderate: "warning", Stressed: "danger" };
+const HEALTH_ICON_STYLE: Record<string, string> = {
+  success: "bg-success-bg text-success",
+  brand: "bg-brand-soft text-brand",
+  warning: "bg-warning-bg text-warning",
+  danger: "bg-danger-bg text-danger",
+};
+const PIE_COLOR_CYCLE = [
+  CHART_COLORS.brand,
+  CHART_COLORS.teal,
+  CHART_COLORS.gold,
+  CHART_COLORS.success,
+  CHART_COLORS.warning,
+  CHART_COLORS.danger,
+];
 const EXPENSE_FIELDS: [string, string][] = [
   ["rent", "Rent"],
   ["groceries", "Groceries / Household"],
@@ -54,6 +73,37 @@ const EXPENSE_FIELDS: [string, string][] = [
 function rupee(v: number) {
   return `₹${Math.round(v || 0).toLocaleString("en-IN")}`;
 }
+
+// jsPDF's built-in fonts only support WinAnsi encoding, which has no glyph for
+// the ₹ sign — it silently renders as a garbled "¹". "Rs." is plain ASCII, so
+// it's safe in any PDF font; used only for the exported report, never on-screen.
+function pdfRupee(v: number) {
+  return `Rs. ${Math.round(v || 0).toLocaleString("en-IN")}`;
+}
+
+type RGB = [number, number, number];
+const PDF_COLORS: Record<string, RGB> = {
+  brand: [36, 82, 201],
+  brandSoft: [232, 237, 255],
+  teal: [13, 148, 136],
+  tealSoft: [227, 246, 244],
+  success: [22, 163, 74],
+  successSoft: [220, 252, 231],
+  warning: [217, 119, 6],
+  warningSoft: [254, 243, 199],
+  danger: [220, 38, 38],
+  dangerSoft: [254, 226, 226],
+  heading: [14, 20, 36],
+  muted: [91, 107, 133],
+  white: [255, 255, 255],
+};
+const PDF_HEALTH_COLOR: Record<string, RGB> = {
+  Excellent: PDF_COLORS.success,
+  Good: PDF_COLORS.brand,
+  Moderate: PDF_COLORS.warning,
+  Stressed: PDF_COLORS.danger,
+};
+const PDF_PIE_CYCLE: RGB[] = [PDF_COLORS.brand, PDF_COLORS.teal, PDF_COLORS.success, PDF_COLORS.warning, PDF_COLORS.danger];
 
 // Chart Y-axis needs a short label — full Indian-format rupee strings (e.g.
 // ₹81,31,868) don't fit in the tick column width.
@@ -138,9 +188,10 @@ function toPayload(form: ReturnType<typeof emptyForm>) {
   };
 }
 
-function StatCard({ icon: Icon, label, value, sub, accentBg, accentText }: any) {
+function StatCard({ icon: Icon, label, value, sub, accentBg, accentText, barColor }: any) {
   return (
-    <Card className="p-5">
+    <Card className="relative overflow-hidden p-5">
+      {barColor && <div className="absolute inset-x-0 top-0 h-1.5" style={{ backgroundColor: barColor }} />}
       <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${accentBg} ${accentText}`}>
         <Icon size={20} />
       </div>
@@ -197,6 +248,8 @@ export default function ClientFinanceWorkspacePage() {
   const [returnRate, setReturnRate] = useState("12");
   const [projections, setProjections] = useState<any[]>([]);
   const [projLoading, setProjLoading] = useState(false);
+
+  const [sendNotice, setSendNotice] = useState(false);
 
   async function loadProfile(rate: string, tenure: string) {
     if (profileId === "new") return;
@@ -543,9 +596,225 @@ export default function ClientFinanceWorkspacePage() {
 
   const chartData = projections.map((p: any) => ({ label: `${p.years}yr`, value: p.value }));
 
+  const incomeAllocation = [
+    { label: "Expenses", value: Math.round(snapshot.totalExpenses), color: CHART_COLORS.danger },
+    { label: "EMI Obligations", value: Math.round(snapshot.totalEmi), color: CHART_COLORS.warning },
+    ...(surplusPositive ? [{ label: "Surplus / Savings", value: Math.round(snapshot.surplus), color: CHART_COLORS.success }] : []),
+  ].filter((d) => d.value > 0);
+
+  const expenseBreakdown = EXPENSE_FIELDS.map(([key, label]) => ({
+    label,
+    value: Math.round(profile.expenses?.[key] || 0),
+  }))
+    .filter((d) => d.value > 0)
+    // Colors are assigned after filtering, not by each field's fixed position —
+    // otherwise a zeroed-out category (e.g. Insurance) shifts every later
+    // category onto the wrong color and two visible slices can end up sharing one.
+    .map((d, i) => ({ ...d, color: PIE_COLOR_CYCLE[i % PIE_COLOR_CYCLE.length] }));
+
+  function handleSendReport() {
+    setSendNotice(true);
+    window.setTimeout(() => setSendNotice(false), 5000);
+  }
+
+  function exportReportPdf() {
+    const doc = new jsPDF();
+    const marginX = 14;
+    const rightEdge = 196;
+    const pageWidth = 210;
+    const pageBottom = 283;
+    let y = 40;
+
+    function ensureSpace(next = 7) {
+      if (y + next > pageBottom) {
+        doc.addPage();
+        y = 20;
+      }
+    }
+    function fill(c: RGB) {
+      doc.setFillColor(c[0], c[1], c[2]);
+    }
+    function textColor(c: RGB) {
+      doc.setTextColor(c[0], c[1], c[2]);
+    }
+
+    function heading(text: string, color: RGB = PDF_COLORS.brand) {
+      ensureSpace(15);
+      fill(color);
+      doc.rect(marginX, y - 3.6, 3, 4.6, "F");
+      doc.setFontSize(12.5);
+      doc.setFont("helvetica", "bold");
+      textColor(color);
+      doc.text(text, marginX + 6, y);
+      doc.setDrawColor(225, 227, 235);
+      doc.setLineWidth(0.2);
+      doc.line(marginX, y + 3, rightEdge, y + 3);
+      doc.setFont("helvetica", "normal");
+      y += 8;
+    }
+    function row(label: string, value: string) {
+      ensureSpace(6);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      textColor(PDF_COLORS.muted);
+      doc.text(label, marginX + 2, y);
+      doc.setFont("helvetica", "bold");
+      textColor(PDF_COLORS.heading);
+      doc.text(value, rightEdge, y, { align: "right" });
+      y += 6;
+    }
+    function dotRow(label: string, value: string, color: RGB) {
+      ensureSpace(6);
+      fill(color);
+      doc.circle(marginX + 1.2, y - 1.6, 1.2, "F");
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      textColor(PDF_COLORS.muted);
+      doc.text(label, marginX + 6, y);
+      doc.setFont("helvetica", "bold");
+      textColor(PDF_COLORS.heading);
+      doc.text(value, rightEdge, y, { align: "right" });
+      y += 6;
+    }
+    function paragraph(text: string) {
+      doc.setFontSize(9.5);
+      doc.setFont("helvetica", "normal");
+      textColor(PDF_COLORS.muted);
+      doc.splitTextToSize(text, rightEdge - marginX - 2).forEach((l: string) => {
+        ensureSpace(5);
+        doc.text(l, marginX + 2, y);
+        y += 5;
+      });
+    }
+    function statBox(x: number, boxY: number, w: number, h: number, label: string, value: string, color: RGB, soft: RGB) {
+      fill(soft);
+      doc.roundedRect(x, boxY, w, h, 2.2, 2.2, "F");
+      fill(color);
+      doc.roundedRect(x, boxY, w, 1.8, 2.2, 2.2, "F");
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      textColor(PDF_COLORS.muted);
+      doc.text(label, x + 4, boxY + 9);
+      doc.setFontSize(12.5);
+      doc.setFont("helvetica", "bold");
+      textColor(PDF_COLORS.heading);
+      doc.text(value, x + 4, boxY + 17);
+    }
+
+    // ── Header band ──
+    fill(PDF_COLORS.brand);
+    doc.rect(0, 0, pageWidth, 32, "F");
+    textColor(PDF_COLORS.white);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(profile.name || "Client", marginX, 15);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const subtitle = [profile.company, profile.designation].filter(Boolean).join(" · ");
+    if (subtitle) doc.text(subtitle, marginX, 21);
+    doc.setFontSize(9);
+    doc.text(`Personal Finance Report  ·  generated ${new Date().toLocaleDateString("en-IN")}`, marginX, subtitle ? 26.5 : 22);
+
+    // ── Snapshot stat boxes ──
+    const boxGap = 4;
+    const boxW = (rightEdge - marginX - boxGap * 3) / 4;
+    const boxH = 19;
+    const boxY = 37;
+    statBox(marginX, boxY, boxW, boxH, "Monthly Income", pdfRupee(snapshot.monthlyIncome), PDF_COLORS.brand, PDF_COLORS.brandSoft);
+    statBox(marginX + boxW + boxGap, boxY, boxW, boxH, "Total Expenses", pdfRupee(snapshot.totalExpenses), PDF_COLORS.danger, PDF_COLORS.dangerSoft);
+    statBox(marginX + (boxW + boxGap) * 2, boxY, boxW, boxH, "Total EMI", pdfRupee(snapshot.totalEmi), PDF_COLORS.warning, PDF_COLORS.warningSoft);
+    statBox(
+      marginX + (boxW + boxGap) * 3,
+      boxY,
+      boxW,
+      boxH,
+      surplusPositive ? "Monthly Surplus" : "Monthly Deficit",
+      pdfRupee(Math.abs(snapshot.surplus)),
+      surplusPositive ? PDF_COLORS.success : PDF_COLORS.danger,
+      surplusPositive ? PDF_COLORS.successSoft : PDF_COLORS.dangerSoft
+    );
+    y = boxY + boxH + 7;
+
+    // ── Financial health ──
+    const healthColor = PDF_HEALTH_COLOR[snapshot.healthStatus] || PDF_COLORS.brand;
+    heading("Financial Health", healthColor);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    const pillW = doc.getTextWidth(snapshot.healthStatus) + 8;
+    fill(healthColor);
+    doc.roundedRect(rightEdge - pillW, y - 9.5, pillW, 6.5, 3.2, 3.2, "F");
+    textColor(PDF_COLORS.white);
+    doc.text(snapshot.healthStatus, rightEdge - pillW / 2, y - 5.3, { align: "center" });
+    paragraph(snapshot.healthMessage);
+    row("FOIR (obligations ÷ income)", `${snapshot.foir}%`);
+    row("Savings rate", `${snapshot.savingsRate}%`);
+    y += 2;
+
+    // ── Loan eligibility ──
+    heading("Loan Eligibility", PDF_COLORS.teal);
+    row("Assumed rate", `${annualRate}% p.a.`);
+    row("Tenure", `${tenureMonths} months`);
+    y += 1;
+    ensureSpace(boxH + 2);
+    const halfGap = 4;
+    const halfW = (rightEdge - marginX - halfGap) / 2;
+    statBox(marginX, y, halfW, boxH, "Additional EMI capacity", `${pdfRupee(eligibility?.additionalEmiCapacity)}/mo`, PDF_COLORS.teal, PDF_COLORS.tealSoft);
+    statBox(marginX + halfW + halfGap, y, halfW, boxH, "Max eligible new loan", pdfRupee(eligibility?.maxEligibleLoan), PDF_COLORS.teal, PDF_COLORS.tealSoft);
+    y += boxH + 6;
+    if (snapshot.foir < 20 && snapshot.savingsRate > 20) {
+      ensureSpace(10);
+      fill(PDF_COLORS.successSoft);
+      doc.roundedRect(marginX, y - 4.5, rightEdge - marginX, 9, 2, 2, "F");
+      textColor(PDF_COLORS.success);
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "normal");
+      doc
+        .splitTextToSize("Low existing debt and healthy savings — well placed to invest more, or take on a new loan.", rightEdge - marginX - 6)
+        .forEach((l: string, i: number) => doc.text(l, marginX + 3, y + i * 4));
+      y += 9;
+    }
+
+    // ── Investment projection ──
+    heading("Investment Projection", PDF_COLORS.success);
+    row("Monthly contribution", pdfRupee(Number(contribution) || 0));
+    row("Assumed return", `${returnRate}% p.a.`);
+    y += 1;
+    projections.forEach((p: any) => dotRow(`In ${p.years} year${p.years > 1 ? "s" : ""}`, pdfRupee(p.value), PDF_COLORS.success));
+    y += 2;
+
+    // ── Loans ──
+    heading("Loans", PDF_COLORS.brand);
+    let hasLoan = false;
+    if (profile.homeLoan?.active) {
+      dotRow("Home Loan", `${pdfRupee(profile.homeLoan.emi)}/mo`, PDF_COLORS.brand);
+      hasLoan = true;
+    }
+    if (profile.carLoan?.active) {
+      dotRow("Car Loan", `${pdfRupee(profile.carLoan.emi)}/mo`, PDF_COLORS.teal);
+      hasLoan = true;
+    }
+    if (profile.personalLoan?.active) {
+      dotRow("Personal Loan", `${pdfRupee(profile.personalLoan.emi)}/mo`, PDF_COLORS.warning);
+      hasLoan = true;
+    }
+    (profile.otherLoans || []).forEach((l: any, i: number) => {
+      dotRow(l.name, `${pdfRupee(l.emi)}/mo`, PDF_PIE_CYCLE[i % PDF_PIE_CYCLE.length]);
+      hasLoan = true;
+    });
+    if (!hasLoan) paragraph("No active loans on file.");
+    y += 2;
+
+    // ── Monthly expenses ──
+    heading("Monthly Expenses", PDF_COLORS.danger);
+    EXPENSE_FIELDS.forEach(([key, label], i) => dotRow(label, pdfRupee(profile.expenses?.[key]), PDF_PIE_CYCLE[i % PDF_PIE_CYCLE.length]));
+
+    const fileSlug = (profile.name || "client").trim().toLowerCase().replace(/\s+/g, "-");
+    doc.save(`${fileSlug}-finance-report.pdf`);
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+      <div className="report-hero-gradient flex flex-col justify-between gap-4 rounded-2xl border border-border p-5 sm:flex-row sm:items-center sm:p-6">
         <div className="flex items-center gap-3">
           {backLink}
           <div>
@@ -556,28 +825,98 @@ export default function ClientFinanceWorkspacePage() {
             </p>
           </div>
         </div>
-        <Button variant="secondary" size="sm" onClick={startEdit}>
-          <Pencil size={14} /> Edit details
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={startEdit}>
+            <Pencil size={14} /> Edit details
+          </Button>
+          <Button variant="secondary" size="sm" onClick={exportReportPdf}>
+            <Download size={14} /> Download Report
+          </Button>
+          <Button variant="secondary" size="sm" onClick={handleSendReport}>
+            <Send size={14} /> Send Report
+            <Badge variant="brand" className="ml-0.5">
+              Soon
+            </Badge>
+          </Button>
+        </div>
       </div>
 
+      {sendNotice && (
+        <div className="rounded-lg border border-brand/30 bg-brand-soft px-3.5 py-2.5 text-sm text-brand">
+          Send Report is coming soon — this will email a copy of this report straight to the client.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Wallet} label="Monthly Income" value={rupee(snapshot.monthlyIncome)} accentBg="bg-brand-soft" accentText="text-brand" />
-        <StatCard icon={TrendingDown} label="Total Expenses" value={rupee(snapshot.totalExpenses)} accentBg="bg-danger-bg" accentText="text-danger" />
-        <StatCard icon={Landmark} label="Total EMI Obligations" value={rupee(snapshot.totalEmi)} accentBg="bg-warning-bg" accentText="text-warning" />
+        <StatCard
+          icon={Wallet}
+          label="Monthly Income"
+          value={rupee(snapshot.monthlyIncome)}
+          accentBg="bg-brand-soft"
+          accentText="text-brand"
+          barColor={CHART_COLORS.brand}
+        />
+        <StatCard
+          icon={TrendingDown}
+          label="Total Expenses"
+          value={rupee(snapshot.totalExpenses)}
+          accentBg="bg-danger-bg"
+          accentText="text-danger"
+          barColor={CHART_COLORS.danger}
+        />
+        <StatCard
+          icon={Landmark}
+          label="Total EMI Obligations"
+          value={rupee(snapshot.totalEmi)}
+          accentBg="bg-warning-bg"
+          accentText="text-warning"
+          barColor={CHART_COLORS.warning}
+        />
         <StatCard
           icon={TrendingUp}
           label={surplusPositive ? "Monthly Surplus" : "Monthly Deficit"}
           value={rupee(Math.abs(snapshot.surplus))}
           accentBg={surplusPositive ? "bg-success-bg" : "bg-danger-bg"}
           accentText={surplusPositive ? "text-success" : "text-danger"}
+          barColor={surplusPositive ? CHART_COLORS.success : CHART_COLORS.danger}
         />
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <Card className="flex flex-col gap-5 p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-soft text-brand">
+              <PieChartIcon size={15} />
+            </div>
+            <h2 className="text-lg font-semibold text-heading">Where the income goes</h2>
+          </div>
+          {incomeAllocation.length === 0 ? (
+            <p className="text-sm text-text-muted">Add income, expenses, or loans to see the breakdown.</p>
+          ) : (
+            <DonutChart data={incomeAllocation} formatValue={rupee} />
+          )}
+        </Card>
+        <Card className="flex flex-col gap-5 p-5 sm:p-6">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent">
+              <PieChartIcon size={15} />
+            </div>
+            <h2 className="text-lg font-semibold text-heading">Expense breakdown</h2>
+          </div>
+          {expenseBreakdown.length === 0 ? (
+            <p className="text-sm text-text-muted">No expenses on file yet.</p>
+          ) : (
+            <DonutChart data={expenseBreakdown} formatValue={rupee} />
+          )}
+        </Card>
       </div>
 
       <Card className="flex flex-col gap-3 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Activity size={16} className="text-text-muted" />
+            <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${HEALTH_ICON_STYLE[HEALTH_VARIANT[snapshot.healthStatus]]}`}>
+              <Activity size={15} />
+            </div>
             <h2 className="text-lg font-semibold text-heading">Financial health</h2>
           </div>
           <Badge variant={HEALTH_VARIANT[snapshot.healthStatus] as any}>{snapshot.healthStatus}</Badge>
@@ -595,7 +934,9 @@ export default function ClientFinanceWorkspacePage() {
 
       <Card className="flex flex-col gap-4 p-5 sm:p-6">
         <div className="flex items-center gap-2">
-          <Banknote size={16} className="text-text-muted" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-soft text-teal">
+            <Banknote size={15} />
+          </div>
           <h2 className="text-lg font-semibold text-heading">Loan eligibility</h2>
         </div>
         <p className="text-sm text-text-muted">
@@ -609,12 +950,14 @@ export default function ClientFinanceWorkspacePage() {
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-border p-4">
-            <p className="text-xs text-text-muted">Additional EMI capacity</p>
+          <div className="relative overflow-hidden rounded-xl bg-teal-soft p-4">
+            <div className="absolute inset-x-0 top-0 h-1.5" style={{ backgroundColor: CHART_COLORS.teal }} />
+            <p className="text-xs text-teal">Additional EMI capacity</p>
             <p className="mt-1 text-xl font-bold text-heading">{rupee(eligibility?.additionalEmiCapacity)}/mo</p>
           </div>
-          <div className="rounded-xl border border-border p-4">
-            <p className="text-xs text-text-muted">Max eligible new loan</p>
+          <div className="relative overflow-hidden rounded-xl bg-teal-soft p-4">
+            <div className="absolute inset-x-0 top-0 h-1.5" style={{ backgroundColor: CHART_COLORS.teal }} />
+            <p className="text-xs text-teal">Max eligible new loan</p>
             <p className="mt-1 text-xl font-bold text-heading">{rupee(eligibility?.maxEligibleLoan)}</p>
           </div>
         </div>
@@ -627,7 +970,9 @@ export default function ClientFinanceWorkspacePage() {
 
       <Card className="flex flex-col gap-4 p-5 sm:p-6">
         <div className="flex items-center gap-2">
-          <TrendingUp size={16} className="text-text-muted" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-soft text-accent">
+            <TrendingUp size={15} />
+          </div>
           <h2 className="text-lg font-semibold text-heading">Investment projection</h2>
         </div>
         <p className="text-sm text-text-muted">
@@ -643,11 +988,17 @@ export default function ClientFinanceWorkspacePage() {
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 12, right: 4, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="projectionBarGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CHART_COLORS.brand} stopOpacity={1} />
+                  <stop offset="100%" stopColor={CHART_COLORS.teal} stopOpacity={0.85} />
+                </linearGradient>
+              </defs>
               <CartesianGrid vertical={false} stroke="var(--border)" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 12 }} />
               <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 12 }} width={56} tickFormatter={(v) => compactRupee(v)} />
               <Tooltip cursor={{ fill: "var(--surface-2)" }} content={<ChartTooltip formatter={(value: number) => rupee(value)} />} />
-              <Bar dataKey="value" name="Projected value" fill={CHART_COLORS.brand} radius={[4, 4, 0, 0]} maxBarSize={48} />
+              <Bar dataKey="value" name="Projected value" fill="url(#projectionBarGradient)" radius={[4, 4, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -655,42 +1006,67 @@ export default function ClientFinanceWorkspacePage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-5">
-          <h3 className="mb-3 text-sm font-semibold text-heading">Loans</h3>
-          <div className="flex flex-col gap-1.5 text-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-soft text-brand">
+              <Landmark size={15} />
+            </div>
+            <h3 className="text-sm font-semibold text-heading">Loans</h3>
+          </div>
+          <div className="flex flex-col gap-2.5 text-sm">
             {profile.homeLoan?.active && (
-              <div className="flex justify-between">
-                <span className="text-text-muted">Home Loan</span>
-                <span className="text-text">{rupee(profile.homeLoan.emi)}/mo</span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-text-muted">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: CHART_COLORS.brand }} />
+                  Home Loan
+                </span>
+                <span className="font-semibold text-heading">{rupee(profile.homeLoan.emi)}/mo</span>
               </div>
             )}
             {profile.carLoan?.active && (
-              <div className="flex justify-between">
-                <span className="text-text-muted">Car Loan</span>
-                <span className="text-text">{rupee(profile.carLoan.emi)}/mo</span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-text-muted">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: CHART_COLORS.teal }} />
+                  Car Loan
+                </span>
+                <span className="font-semibold text-heading">{rupee(profile.carLoan.emi)}/mo</span>
               </div>
             )}
             {profile.personalLoan?.active && (
-              <div className="flex justify-between">
-                <span className="text-text-muted">Personal Loan</span>
-                <span className="text-text">{rupee(profile.personalLoan.emi)}/mo</span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-text-muted">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: CHART_COLORS.gold }} />
+                  Personal Loan
+                </span>
+                <span className="font-semibold text-heading">{rupee(profile.personalLoan.emi)}/mo</span>
               </div>
             )}
             {(profile.otherLoans || []).map((l: any, i: number) => (
-              <div key={i} className="flex justify-between">
-                <span className="text-text-muted">{l.name}</span>
-                <span className="text-text">{rupee(l.emi)}/mo</span>
+              <div key={i} className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-text-muted">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: PIE_COLOR_CYCLE[i % PIE_COLOR_CYCLE.length] }} />
+                  {l.name}
+                </span>
+                <span className="font-semibold text-heading">{rupee(l.emi)}/mo</span>
               </div>
             ))}
             {snapshot.totalEmi === 0 && <p className="text-text-muted">No active loans on file.</p>}
           </div>
         </Card>
         <Card className="p-5">
-          <h3 className="mb-3 text-sm font-semibold text-heading">Monthly expenses</h3>
-          <div className="flex flex-col gap-1.5 text-sm">
-            {EXPENSE_FIELDS.map(([key, label]) => (
-              <div key={key} className="flex justify-between">
-                <span className="text-text-muted">{label}</span>
-                <span className="text-text">{rupee(profile.expenses?.[key])}</span>
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-danger-bg text-danger">
+              <TrendingDown size={15} />
+            </div>
+            <h3 className="text-sm font-semibold text-heading">Monthly expenses</h3>
+          </div>
+          <div className="flex flex-col gap-2.5 text-sm">
+            {EXPENSE_FIELDS.map(([key, label], i) => (
+              <div key={key} className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-text-muted">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: PIE_COLOR_CYCLE[i % PIE_COLOR_CYCLE.length] }} />
+                  {label}
+                </span>
+                <span className="whitespace-nowrap font-semibold text-heading">{rupee(profile.expenses?.[key])}</span>
               </div>
             ))}
           </div>

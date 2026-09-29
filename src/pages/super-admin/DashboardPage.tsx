@@ -211,7 +211,7 @@ export default function DashboardPage() {
         <Card className="p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-heading">Recently onboarded</h2>
-            <Link to="../ca-firms" className="flex items-center gap-1 text-sm font-medium text-brand hover:underline">
+            <Link to="../super-admin/ca-firms" className="flex items-center gap-1 text-sm font-medium text-brand hover:underline">
               View all <ArrowUpRight size={14} />
             </Link>
           </div>
@@ -238,7 +238,7 @@ export default function DashboardPage() {
               <TrendingUp size={16} className="text-teal" />
               <h2 className="text-base font-semibold text-heading">Revenue overview</h2>
             </div>
-            <Link to="../billing" className="flex items-center gap-1 text-sm font-medium text-brand hover:underline">
+            <Link to="../super-admin/billing" className="flex items-center gap-1 text-sm font-medium text-brand hover:underline">
               Details <ArrowUpRight size={14} />
             </Link>
           </div>

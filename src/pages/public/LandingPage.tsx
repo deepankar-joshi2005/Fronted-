@@ -105,7 +105,7 @@ export default function LandingPage() {
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               to="/signup"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-semibold text-accent-fg shadow-lg shadow-accent/25 hover:bg-accent-hover"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-brand-fg shadow-lg shadow-brand/25 hover:bg-brand-hover"
             >
               Start Free 14-Day Trial <ArrowRight size={16} />
             </Link>
@@ -229,7 +229,7 @@ export default function LandingPage() {
                 to="/signup"
                 className={`mt-7 flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
                   plan.highlight
-                    ? "bg-accent text-accent-fg hover:bg-accent-hover"
+                    ? "bg-brand text-brand-fg hover:bg-brand-hover"
                     : "border border-border text-text hover:bg-surface-2"
                 }`}
               >
@@ -285,7 +285,7 @@ export default function LandingPage() {
           <div className="mt-7">
             <Link
               to="/signup"
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-semibold text-accent-fg shadow-lg shadow-accent/25 hover:bg-accent-hover"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-brand-fg shadow-lg shadow-brand/25 hover:bg-brand-hover"
             >
               Start free trial <ArrowRight size={16} />
             </Link>

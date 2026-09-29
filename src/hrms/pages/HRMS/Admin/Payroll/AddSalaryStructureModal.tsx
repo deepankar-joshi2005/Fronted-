@@ -14,6 +14,7 @@ interface Employee {
   _id: string;
   name: string;
   employeeId: string;
+  role?: string;
 }
 
 const emptyValues = () => {
@@ -29,6 +30,9 @@ const AddSalaryStructureModal = ({ isOpen, onClose, editData }: Props) => {
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employee, setEmployee] = useState("");
+  // Note shown when fields were auto-filled from another employee's saved
+  // salary structure that shares the selected employee's role.
+  const [roleDefaultNote, setRoleDefaultNote] = useState<string | null>(null);
   // Kept as raw strings (not numbers) while editing — a controlled
   // type="number" input bound to a coerced/clamped number fights the user
   // mid-keystroke (e.g. typing "10" gets its leading digit stripped as soon
@@ -61,6 +65,7 @@ const AddSalaryStructureModal = ({ isOpen, onClose, editData }: Props) => {
       setEmployee("");
       setValues(emptyValues());
     }
+    setRoleDefaultNote(null);
   }, [editData, isOpen]);
 
   useEffect(() => {
@@ -72,6 +77,45 @@ const AddSalaryStructureModal = ({ isOpen, onClose, editData }: Props) => {
       })
       .then((res) => setEmployees(res.data));
   }, [isOpen]);
+
+  /* ROLE-WISE DEFAULT AUTOFILL
+   * When adding a new salary structure (not editing) and an employee is
+   * selected, prefill earnings/deductions from the most recently saved
+   * salary structure of another employee sharing the same role in this
+   * company, if one exists. Fields stay fully editable afterwards. */
+  useEffect(() => {
+    if (!isOpen || editData || !employee) return;
+    const selected = employees.find((e) => e._id === employee);
+    if (!selected?.role) return;
+
+    let cancelled = false;
+    axios
+      .get(`${API_BASE}/salary-structures/role-default/${encodeURIComponent(selected.role)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        if (cancelled) return;
+        const next = emptyValues();
+        if (res.data?.components) {
+          for (const key of Object.keys(next)) {
+            next[key] = String(res.data.components[key] ?? 0);
+          }
+          setRoleDefaultNote(
+            `Auto-filled from the existing "${selected.role}" role salary structure. You can edit before saving.`
+          );
+        } else {
+          setRoleDefaultNote(null);
+        }
+        setValues(next);
+      })
+      .catch(() => {
+        if (!cancelled) setRoleDefaultNote(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employee, editData, isOpen, employees]);
 
   if (!isOpen) return null;
 
@@ -141,6 +185,9 @@ const AddSalaryStructureModal = ({ isOpen, onClose, editData }: Props) => {
               ))}
             </select>
             {editData && <p className="text-[10px] text-gray-400 mt-1 italic">* Cannot change employee in edit mode</p>}
+            {!editData && roleDefaultNote && (
+              <p className="text-[10px] text-orange-600 mt-1 italic">{roleDefaultNote}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

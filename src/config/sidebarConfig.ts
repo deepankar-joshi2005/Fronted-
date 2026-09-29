@@ -12,6 +12,7 @@ import {
   PiggyBank,
   UserCog,
   CreditCard,
+  BarChart3,
 } from "lucide-react";
 import { ROLES } from "./roles.js";
 
@@ -23,6 +24,7 @@ export const SIDEBAR_CONFIG = {
     { label: "CA Management", icon: Building2, path: "ca-firms" },
     { label: "Business Clients", icon: Briefcase, path: "business-clients" },
     { label: "Users", icon: Users, path: "users" },
+    { label: "Reports", icon: BarChart3, path: "reports" },
     { label: "Billing", icon: Wallet, path: "billing" },
     { label: "Support", icon: LifeBuoy, path: "support" },
     { label: "Audit Logs", icon: FileClock, path: "audit-logs" },
@@ -46,11 +48,14 @@ export const SIDEBAR_CONFIG = {
 
   // Per Role Matrix Section 3: CA Firm Staff get partial CRM/Compliance (assigned
   // records only) and full Personal Finance Tracker, but no staff/billing/settings management.
+  // The `module` key ties each item to a User.permissions.<module> grant (see
+  // modulePermissions.ts) — Sidebar.tsx hides any item whose module isn't enabled for
+  // this staff member. Items with no `module` key (Dashboard, Support) always show.
   [ROLES.CA_FIRM_STAFF]: [
     { label: "Dashboard", icon: LayoutDashboard, path: "" },
-    { label: "CRM", icon: Contact2, path: "crm" },
-    { label: "Compliance Tool", icon: ClipboardCheck, path: "compliance" },
-    { label: "Personal Finance Tracker", icon: PiggyBank, path: "finance-tracker" },
+    { label: "CRM", icon: Contact2, path: "crm", module: "crm" },
+    { label: "Compliance Tool", icon: ClipboardCheck, path: "compliance", module: "compliance" },
+    { label: "Personal Finance Tracker", icon: PiggyBank, path: "finance-tracker", module: "financeTracker" },
     { label: "Support", icon: LifeBuoy, path: "support" },
   ],
   // Non-HRMS Business Client Admin's own dashboard — HRMS clients never see

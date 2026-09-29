@@ -2,7 +2,7 @@ import { Landmark, ChevronsLeft, ChevronsRight, LogOut, X } from "lucide-react";
 import { useUiStore } from "../../store/uiStore.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import { SIDEBAR_CONFIG } from "../../config/sidebarConfig.js";
-import { ROLE_LABELS } from "../../config/roles.js";
+import { ROLE_LABELS, ROLES } from "../../config/roles.js";
 import SidebarItem from "./SidebarItem.jsx";
 
 export default function Sidebar() {
@@ -12,7 +12,11 @@ export default function Sidebar() {
   const setMobileOpen = useUiStore((s) => s.setMobileSidebarOpen);
   const { user, basePath, logout } = useAuth();
 
-  const items = SIDEBAR_CONFIG[user?.role] || [];
+  const items = (SIDEBAR_CONFIG[user?.role] || []).filter((item) => {
+    if (!item.module) return true;
+    if (user?.role !== ROLES.CA_FIRM_STAFF) return true;
+    return !!user?.permissions?.[item.module]?.enabled;
+  });
 
   const content = (
     <div className="sidebar-gradient flex h-full flex-col border-r border-sidebar-border">

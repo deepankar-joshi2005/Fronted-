@@ -180,6 +180,15 @@ body {
     radial-gradient(500px circle at 50% 100%, var(--accent-soft) 0%, transparent 45%);
 }
 
+/* Soft, contained header glow for report-style dashboard cards: indigo + teal + gold */
+.report-hero-gradient {
+  background-image:
+    radial-gradient(480px circle at 0% 0%, var(--brand-soft) 0%, transparent 60%),
+    radial-gradient(480px circle at 100% 0%, var(--teal-soft) 0%, transparent 60%),
+    radial-gradient(420px circle at 50% 130%, var(--accent-soft) 0%, transparent 55%);
+  background-color: var(--surface);
+}
+
 .sidebar-gradient {
   background-image: linear-gradient(180deg, var(--sidebar-from) 0%, var(--sidebar-to) 100%);
 }
