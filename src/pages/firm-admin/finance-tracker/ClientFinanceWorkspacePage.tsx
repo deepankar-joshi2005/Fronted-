@@ -28,6 +28,7 @@ import { sanitizePhone, sanitizeGstin, validatePhone, validateGstin, validateEma
 import Card from "../../../components/ui/Card.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import Badge from "../../../components/ui/Badge.jsx";
+import Modal from "../../../components/ui/Modal.jsx";
 import Button from "../../../components/ui/Button.jsx";
 import Switch from "../../../components/ui/Switch.jsx";
 import Spinner from "../../../components/ui/Spinner.jsx";
@@ -249,7 +250,11 @@ export default function ClientFinanceWorkspacePage() {
   const [projections, setProjections] = useState<any[]>([]);
   const [projLoading, setProjLoading] = useState(false);
 
-  const [sendNotice, setSendNotice] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendChannels, setSendChannels] = useState({ email: true, whatsapp: true });
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const [sendResult, setSendResult] = useState<string>("");
 
   async function loadProfile(rate: string, tenure: string) {
     if (profileId === "new") return;
@@ -612,12 +617,70 @@ export default function ClientFinanceWorkspacePage() {
     // category onto the wrong color and two visible slices can end up sharing one.
     .map((d, i) => ({ ...d, color: PIE_COLOR_CYCLE[i % PIE_COLOR_CYCLE.length] }));
 
-  function handleSendReport() {
-    setSendNotice(true);
-    window.setTimeout(() => setSendNotice(false), 5000);
+  function openSendReport() {
+    setSendChannels({ email: !!profile.email, whatsapp: !!profile.phone });
+    setSendError("");
+    setSendOpen(true);
+  }
+
+  const CHANNEL_REASONS: Record<string, string> = {
+    whatsapp_not_configured: "WhatsApp isn't connected for the platform yet",
+    no_template_configured: "no approved WhatsApp template is configured yet",
+    smtp_not_configured: "email isn't configured on the server",
+    recipient_opted_out: "the client has opted out of this channel",
+    recipient_replied_stop: "the client replied STOP on WhatsApp",
+    no_valid_phone: "the mobile number isn't valid",
+    no_email_address: "no email address",
+    firm_licence_lapsed: "your firm's licence has lapsed",
+  };
+
+  function describeChannel(label: string, r: any) {
+    if (!r || r.reason === "not_requested") return null;
+    if (r.status === "sent") return `${label}: sent`;
+    return `${label}: not sent (${CHANNEL_REASONS[r.reason] || r.reason || r.status})`;
+  }
+
+  // Module Scope doc, Section 6.1 — send the saved calculation/PDF summary
+  // straight to the client's WhatsApp (and email).
+  async function handleSendReport() {
+    const channels = (["email", "whatsapp"] as const).filter((c) => sendChannels[c]);
+    if (channels.length === 0) {
+      setSendError("Pick at least one channel");
+      return;
+    }
+    setSending(true);
+    setSendError("");
+    try {
+      const { doc, fileName } = buildReportPdf();
+      const pdfBase64 = doc.output("datauristring").split(",")[1];
+      const { data } = await financeTrackerApi.shareFinanceReport(profileId!, {
+        channels: [...channels],
+        pdfBase64,
+        fileName,
+        annualRate: Number(annualRate) || undefined,
+        tenureMonths: Number(tenureMonths) || undefined,
+      });
+      setSendResult([describeChannel("Email", data.data.email), describeChannel("WhatsApp", data.data.whatsapp)].filter(Boolean).join(" · "));
+      setSendOpen(false);
+      window.setTimeout(() => setSendResult(""), 8000);
+    } catch (err: any) {
+      const result = err.response?.data?.data;
+      setSendError(
+        result
+          ? [describeChannel("Email", result.email), describeChannel("WhatsApp", result.whatsapp)].filter(Boolean).join(" · ")
+          : err.response?.data?.message || "Could not send the report"
+      );
+    } finally {
+      setSending(false);
+    }
   }
 
   function exportReportPdf() {
+    const { doc, fileName } = buildReportPdf();
+    doc.save(`${fileName}.pdf`);
+  }
+
+  function buildReportPdf() {
     const doc = new jsPDF();
     const marginX = 14;
     const rightEdge = 196;
@@ -809,7 +872,7 @@ export default function ClientFinanceWorkspacePage() {
     EXPENSE_FIELDS.forEach(([key, label], i) => dotRow(label, pdfRupee(profile.expenses?.[key]), PDF_PIE_CYCLE[i % PDF_PIE_CYCLE.length]));
 
     const fileSlug = (profile.name || "client").trim().toLowerCase().replace(/\s+/g, "-");
-    doc.save(`${fileSlug}-finance-report.pdf`);
+    return { doc, fileName: `${fileSlug}-finance-report` };
   }
 
   return (
@@ -832,20 +895,59 @@ export default function ClientFinanceWorkspacePage() {
           <Button variant="secondary" size="sm" onClick={exportReportPdf}>
             <Download size={14} /> Download Report
           </Button>
-          <Button variant="secondary" size="sm" onClick={handleSendReport}>
+          <Button variant="secondary" size="sm" onClick={openSendReport}>
             <Send size={14} /> Send Report
-            <Badge variant="brand" className="ml-0.5">
-              Soon
-            </Badge>
           </Button>
         </div>
       </div>
 
-      {sendNotice && (
-        <div className="rounded-lg border border-brand/30 bg-brand-soft px-3.5 py-2.5 text-sm text-brand">
-          Send Report is coming soon — this will email a copy of this report straight to the client.
-        </div>
+      {sendResult && (
+        <div className="rounded-lg border border-brand/30 bg-brand-soft px-3.5 py-2.5 text-sm text-brand">{sendResult}</div>
       )}
+
+      <Modal
+        open={sendOpen}
+        onClose={() => setSendOpen(false)}
+        title="Send report to client"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setSendOpen(false)} disabled={sending}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendReport} loading={sending}>
+              <Send size={14} /> Send
+            </Button>
+          </>
+        }
+      >
+        <p className="mb-4 text-sm text-text-muted">
+          The full report PDF is sent to {profile.name}, with a short summary of their income, EMIs and loan eligibility.
+        </p>
+        <div className="flex flex-col gap-3">
+          {[
+            { key: "email", label: "Email", target: profile.email, missing: "No email address on this profile" },
+            { key: "whatsapp", label: "WhatsApp", target: profile.phone, missing: "No mobile number on this profile" },
+          ].map((c) => (
+            <label
+              key={c.key}
+              className={`flex items-start gap-3 rounded-lg border border-border p-3 ${c.target ? "cursor-pointer" : "opacity-60"}`}
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-brand"
+                disabled={!c.target}
+                checked={!!c.target && sendChannels[c.key as "email" | "whatsapp"]}
+                onChange={(e) => setSendChannels((s) => ({ ...s, [c.key]: e.target.checked }))}
+              />
+              <span>
+                <span className="block text-sm font-medium text-text">{c.label}</span>
+                <span className="block text-xs text-text-muted">{c.target || c.missing}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {sendError && <p className="mt-3 text-sm text-danger">{sendError}</p>}
+      </Modal>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

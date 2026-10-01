@@ -128,6 +128,10 @@ const INITIAL_FORM = {
   priority: "medium",
   expectedClosingDate: "",
   description: "",
+  // Automated reminders/updates to this lead/client — Module Scope doc §6.1
+  // (opt-out per channel). Both on by default.
+  notifyEmail: true,
+  notifyWhatsapp: true,
 };
 
 function formatDate(d) {
@@ -310,6 +314,8 @@ function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSa
         priority: editingLead.priority || "medium",
         expectedClosingDate: editingLead.expectedClosingDate ? editingLead.expectedClosingDate.slice(0, 10) : "",
         description: editingLead.description || "",
+        notifyEmail: editingLead.notificationPreferences?.email !== false,
+        notifyWhatsapp: editingLead.notificationPreferences?.whatsapp !== false,
       });
     } else {
       setForm(INITIAL_FORM);
@@ -351,7 +357,8 @@ function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSa
     }
     setSubmitting(true);
     try {
-      const payload = { ...form };
+      const { notifyEmail, notifyWhatsapp, ...rest } = form;
+      const payload: Record<string, any> = { ...rest, notificationPreferences: { email: notifyEmail, whatsapp: notifyWhatsapp } };
       if (!payload.assignedTo) delete payload.assignedTo;
       if (!payload.estimatedValue) delete payload.estimatedValue;
       if (!payload.expectedClosingDate) delete payload.expectedClosingDate;
@@ -544,6 +551,34 @@ function LeadFormModal({ open, onClose, editingLead, isAdmin, staffOptions, onSa
             onChange={update("description")}
             placeholder="Any background context about this lead..."
           />
+        </div>
+
+        <div className="border-t border-border pt-4">
+          <p className="mb-1 text-sm font-semibold text-heading">Automated messages to this lead</p>
+          <p className="mb-3 text-xs text-text-muted">
+            Follow-up reminders, compliance deadline alerts and shared reports are sent automatically. Turn a channel off if the
+            lead has asked not to be contacted on it.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
+            <label className="flex items-center gap-2 text-sm text-text">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-brand"
+                checked={form.notifyEmail}
+                onChange={(e) => setForm((f) => ({ ...f, notifyEmail: e.target.checked }))}
+              />
+              Email
+            </label>
+            <label className="flex items-center gap-2 text-sm text-text">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-brand"
+                checked={form.notifyWhatsapp}
+                onChange={(e) => setForm((f) => ({ ...f, notifyWhatsapp: e.target.checked }))}
+              />
+              WhatsApp
+            </label>
+          </div>
         </div>
       </form>
     </Modal>

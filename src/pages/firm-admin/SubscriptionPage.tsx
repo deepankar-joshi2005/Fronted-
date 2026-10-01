@@ -1,6 +1,20 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, CreditCard, Calendar, Wallet, Receipt, History, ChevronDown, ChevronUp, Sprout, Users, Building2 } from "lucide-react";
+import {
+  CheckCircle2,
+  CreditCard,
+  Calendar,
+  Wallet,
+  Receipt,
+  History,
+  ChevronDown,
+  ChevronUp,
+  Sprout,
+  Users,
+  Building2,
+  MessageCircle,
+} from "lucide-react";
 import * as caFirmApi from "../../api/caFirm.api.js";
+import * as notificationApi from "../../api/notification.api.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import Card from "../../components/ui/Card.jsx";
 import Badge from "../../components/ui/Badge.jsx";
@@ -55,6 +69,7 @@ export default function SubscriptionPage() {
   const [paidDone, setPaidDone] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [billingCycles, setBillingCycles] = useState({ starter: "monthly", growth: "monthly", enterprise: "monthly" });
+  const [whatsappUsage, setWhatsappUsage] = useState(null);
 
   function setCycleFor(tier, cycle) {
     setBillingCycles((c) => ({ ...c, [tier]: cycle }));
@@ -120,6 +135,12 @@ export default function SubscriptionPage() {
 
   useEffect(() => {
     load();
+    // Included WhatsApp quota vs. this month's usage (Multi-Tenancy doc, §5/§6) —
+    // optional extra, so a failure here never blocks the page.
+    notificationApi
+      .getWhatsAppUsage()
+      .then(({ data }) => setWhatsappUsage(data.data))
+      .catch(() => {});
   }, []);
 
   if (loading) {
@@ -147,7 +168,7 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${whatsappUsage ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         <StatCard icon={Wallet} label="Current Plan" value={TIER_LABELS[currentTier] || "—"} sub={firmPlan?.plan?.status} />
         <StatCard
           icon={Calendar}
@@ -165,6 +186,24 @@ export default function SubscriptionPage() {
           accentBg="bg-success-bg"
           accentText="text-success"
         />
+        {whatsappUsage && (
+          <StatCard
+            icon={MessageCircle}
+            label="WhatsApp Messages (this month)"
+            value={whatsappUsage.quota === null ? whatsappUsage.sent : `${whatsappUsage.sent} / ${whatsappUsage.quota}`}
+            sub={
+              !whatsappUsage.whatsappConfigured
+                ? "WhatsApp alerts start once the platform connects WhatsApp"
+                : whatsappUsage.overage
+                  ? `${whatsappUsage.overage} over quota · ${whatsappUsage.currency} ${whatsappUsage.overageAmount} pay-as-you-go`
+                  : whatsappUsage.quota === null
+                    ? "Custom quota"
+                    : "Included in your plan"
+            }
+            accentBg={whatsappUsage.overage ? "bg-warning-bg" : "bg-success-bg"}
+            accentText={whatsappUsage.overage ? "text-warning" : "text-success"}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

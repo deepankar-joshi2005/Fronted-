@@ -13,6 +13,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/collapsible-sidebar";
+import HrmsNotificationBell from "@/components/HrmsNotificationBell";
 
 import {
   LayoutDashboard,
@@ -209,6 +210,9 @@ export default function HRMSAdminLayout({ children }: Props) {
               <SidebarToggle className="text-gray-700 hover:bg-gray-100" />
             </div>
             <CRMHeaderUserInfo name={user?.name} role="Admin" />
+            <div className="ml-auto">
+              <HrmsNotificationBell className="text-gray-700 hover:bg-gray-100" />
+            </div>
           </div>
         </header>
 

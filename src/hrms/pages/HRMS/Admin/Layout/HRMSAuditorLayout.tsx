@@ -1,6 +1,7 @@
 /** @format */
 
 import { useNavigate } from "react-router-dom";
+import HrmsNotificationBell from "@/components/HrmsNotificationBell";
 import {
   Sidebar,
   SidebarContent,
@@ -100,6 +101,7 @@ function HeaderBar() {
         </h1>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-3">
+          <HrmsNotificationBell className="text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-hover-bg)]" />
           <button
             type="button"
             onClick={toggleTheme}

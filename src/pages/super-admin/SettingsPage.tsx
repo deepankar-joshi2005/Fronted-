@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as settingsApi from "../../api/settings.api.js";
 import * as hrmsPlanTierApi from "../../api/hrmsPlanTier.api.js";
+import * as notificationApi from "../../api/notification.api.js";
 import Card from "../../components/ui/Card.jsx";
 import Input from "../../components/ui/Input.jsx";
 import Button from "../../components/ui/Button.jsx";
@@ -79,6 +80,70 @@ function HrmsPlanTiersCard() {
   );
 }
 
+// WhatsApp connection status + this month's usage per firm against each
+// tier's included quota (Multi-Tenancy & Licensing doc, Sections 5/6).
+function WhatsAppUsageCard() {
+  const [usage, setUsage] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    notificationApi
+      .getWhatsAppUsage()
+      .then(({ data }) => setUsage(data.data))
+      .catch(() => setError("Could not load WhatsApp usage"));
+  }, []);
+
+  return (
+    <Card className="max-w-3xl p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-heading">WhatsApp notifications</h2>
+          <p className="text-sm text-text-muted">Messages sent this month by each CA firm (including their HRMS clients).</p>
+        </div>
+        {usage && (
+          <span
+            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+              usage.whatsappConfigured ? "bg-success-bg text-success" : "bg-warning-bg text-warning"
+            }`}
+          >
+            {usage.whatsappConfigured ? "Connected" : "Not connected — add the WhatsApp keys to the server .env"}
+          </span>
+        )}
+      </div>
+      {error && <p className="text-sm text-danger">{error}</p>}
+      {!usage && !error && <Spinner size={20} />}
+      {usage && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-border text-xs uppercase tracking-wide text-text-muted">
+                <th className="py-2 pr-3">Firm</th>
+                <th className="py-2 pr-3">Plan</th>
+                <th className="py-2 pr-3">Sent</th>
+                <th className="py-2 pr-3">Included</th>
+                <th className="py-2">Overage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usage.firms.map((f) => (
+                <tr key={f.caFirmId} className="border-b border-border last:border-0">
+                  <td className="py-2 pr-3 text-text">{f.firmName}</td>
+                  <td className="py-2 pr-3 capitalize text-text-muted">{f.tier}</td>
+                  <td className="py-2 pr-3 text-text">{f.sent}</td>
+                  <td className="py-2 pr-3 text-text-muted">{f.quota ?? "Custom"}</td>
+                  <td className={`py-2 ${f.overage ? "font-semibold text-warning" : "text-text-muted"}`}>
+                    {f.overage ? `${f.overage} (${usage.currency} ${f.overageAmount})` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -112,6 +177,11 @@ export default function SettingsPage() {
         growthPrice: Number(form.growthPrice),
         enterprisePrice: Number(form.enterprisePrice),
         currency: form.currency,
+        whatsappQuotaStarter: form.whatsappQuotaStarter === "" || form.whatsappQuotaStarter === null ? null : Number(form.whatsappQuotaStarter),
+        whatsappQuotaGrowth: form.whatsappQuotaGrowth === "" || form.whatsappQuotaGrowth === null ? null : Number(form.whatsappQuotaGrowth),
+        whatsappQuotaEnterprise:
+          form.whatsappQuotaEnterprise === "" || form.whatsappQuotaEnterprise === null ? null : Number(form.whatsappQuotaEnterprise),
+        whatsappOverageRate: Number(form.whatsappOverageRate) || 0,
       });
       setForm(data.data);
       setMessage("Platform settings updated");
@@ -188,6 +258,34 @@ export default function SettingsPage() {
             />
           </div>
 
+          <div>
+            <p className="text-sm font-medium text-text">WhatsApp messages included per month</p>
+            <p className="mb-3 text-xs text-text-muted">
+              Usage beyond the quota isn't blocked — it's counted as overage and billed to the CA firm at the rate below. Leave
+              blank for a custom/unlimited quota.
+            </p>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <Input label="Starter" type="number" min={0} value={form.whatsappQuotaStarter ?? ""} onChange={update("whatsappQuotaStarter")} />
+              <Input label="Growth" type="number" min={0} value={form.whatsappQuotaGrowth ?? ""} onChange={update("whatsappQuotaGrowth")} />
+              <Input
+                label="Enterprise"
+                type="number"
+                min={0}
+                placeholder="Custom"
+                value={form.whatsappQuotaEnterprise ?? ""}
+                onChange={update("whatsappQuotaEnterprise")}
+              />
+              <Input
+                label={`Overage / msg (${form.currency})`}
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.whatsappOverageRate ?? ""}
+                onChange={update("whatsappOverageRate")}
+              />
+            </div>
+          </div>
+
           <div className="flex items-center justify-between rounded-lg border border-border p-3.5">
             <div>
               <p className="text-sm font-medium text-text">Maintenance mode</p>
@@ -204,6 +302,8 @@ export default function SettingsPage() {
           </Button>
         </form>
       </Card>
+
+      <WhatsAppUsageCard />
 
       <HrmsPlanTiersCard />
     </div>
