@@ -1,65 +1,10 @@
-import { Link } from "react-router-dom";
-import {
-  Users,
-  Handshake,
-  ClipboardCheck,
-  Calculator,
-  ArrowRight,
-  CheckCircle2,
-  ShieldCheck,
-  Landmark,
-  Building2,
-  Briefcase,
-  MessageCircleMore,
-  Mail,
-} from "lucide-react";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Users, ArrowRight, CheckCircle2, ShieldCheck, Building2, MessageCircleMore, Mail } from "lucide-react";
+import { MODULES, TIERS } from "../../config/landingContent.js";
 import { ROLE_LABELS } from "../../config/roles.js";
 import { ROLE_DESCRIPTIONS, ROLE_ORDER } from "../../config/roleDescriptions.js";
 import { accentAt } from "../../config/accentColors.js";
-
-const MODULES = [
-  {
-    icon: Users,
-    title: "HRMS",
-    desc: "Give your business clients a lightweight HR system — employee records, attendance, leave and payroll inputs.",
-  },
-  {
-    icon: Handshake,
-    title: "CRM",
-    desc: "Track leads and prospects, manage follow-ups and communication history, and convert prospects into clients.",
-  },
-  {
-    icon: ClipboardCheck,
-    title: "Compliance Tool",
-    desc: "Recurring GST, TDS and ROC templates assigned to clients and staff, with deadline tracking and reminders.",
-  },
-  {
-    icon: Calculator,
-    title: "Loan Calculator",
-    desc: "EMI and eligibility estimates, side-by-side scenario comparisons, and shareable amortization schedules.",
-  },
-];
-
-const TIERS = [
-  {
-    icon: Landmark,
-    label: "Tier 1 — Platform Owner",
-    who: "Super Admin",
-    what: "Manages licensing, onboards CA firms, and oversees the whole platform.",
-  },
-  {
-    icon: Building2,
-    label: "Tier 2 — Licensee CA Firm",
-    who: "A CA firm that purchases a licence",
-    what: "CRM, Compliance Tool and Loan Calculator — to run their own practice.",
-  },
-  {
-    icon: Briefcase,
-    label: "Tier 3 — CA Firm's Business Client",
-    who: "A business client onboarded by the CA firm",
-    what: "HRMS — to manage their own employees, fully isolated from every other client.",
-  },
-];
 
 const PLANS = [
   {
@@ -86,6 +31,14 @@ const PLANS = [
 ];
 
 export default function LandingPage() {
+  const { hash } = useLocation();
+
+  // "Back to modules" on a detail page links to /#modules — land on that section.
+  useEffect(() => {
+    if (!hash) return;
+    document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [hash]);
+
   return (
     <div>
       {/* Hero */}
@@ -121,32 +74,36 @@ export default function LandingPage() {
       </section>
 
       {/* Modules */}
-      <section className="mx-auto max-w-6xl px-4 py-16 md:px-6">
+      <section id="modules" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 md:px-6">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-heading">Four modules, one platform</h2>
-          <p className="mt-2 text-text-muted">Everything your firm needs to run day-to-day practice work.</p>
+          <h2 className="text-3xl font-bold text-heading">Five modules, one platform</h2>
+          <p className="mt-2 text-text-muted">Everything your firm needs to run day-to-day practice work. Click a module to see everything it does.</p>
         </div>
-        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {MODULES.map(({ icon: Icon, title, desc }, i) => {
+        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {MODULES.map(({ slug, icon: Icon, title, desc }, i) => {
             const accent = accentAt(i);
             return (
-              <div
-                key={title}
-                className="rounded-xl border border-border bg-surface p-6 shadow-sm transition-shadow hover:shadow-md"
+              <Link
+                key={slug}
+                to={`/modules/${slug}`}
+                className="group flex flex-col rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
               >
                 <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${accent.bg} ${accent.text}`}>
                   <Icon size={20} />
                 </div>
                 <h3 className="mt-4 text-base font-semibold text-heading">{title}</h3>
-                <p className="mt-1.5 text-sm text-text-muted">{desc}</p>
-              </div>
+                <p className="mt-1.5 flex-1 text-sm text-text-muted">{desc}</p>
+                <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand">
+                  Learn more <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </Link>
             );
           })}
         </div>
       </section>
 
       {/* 3-tier structure */}
-      <section className="border-y border-border bg-surface-2/50 px-4 py-16 md:px-6">
+      <section id="tiers" className="scroll-mt-20 border-y border-border bg-surface-2/50 px-4 py-16 md:px-6">
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-brand">
@@ -158,17 +115,24 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-3">
-            {TIERS.map(({ icon: Icon, label, who, what }, i) => {
+            {TIERS.map(({ slug, icon: Icon, title, desc, audience }, i) => {
               const accent = accentAt(i);
               return (
-                <div key={label} className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+                <Link
+                  key={slug}
+                  to={`/platform/${slug}`}
+                  className="group flex flex-col rounded-2xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
+                >
                   <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${accent.bg} ${accent.text}`}>
                     <Icon size={22} />
                   </div>
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">{label}</p>
-                  <p className="mt-1 text-base font-semibold text-heading">{who}</p>
-                  <p className="mt-2 text-sm text-text-muted">{what}</p>
-                </div>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</p>
+                  <p className="mt-1 text-base font-semibold text-heading">{audience.map((a) => a.who).join(" · ")}</p>
+                  <p className="mt-2 flex-1 text-sm text-text-muted">{desc}</p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand">
+                    Learn more <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </Link>
               );
             })}
           </div>
@@ -189,8 +153,8 @@ export default function LandingPage() {
           <div>
             <h3 className="text-lg font-bold text-heading">Automated WhatsApp &amp; email notifications</h3>
             <p className="mt-1 text-sm text-text-muted">
-              Compliance deadlines, CRM follow-ups, leave approvals and loan calculations — sent automatically the
-              moment they happen, not as a manual broadcast.
+              Compliance deadlines, CRM follow-ups, HR approvals and finance reports — sent automatically the moment
+              they happen, not as a manual broadcast. Everyone chooses their own channels.
             </p>
           </div>
         </div>
