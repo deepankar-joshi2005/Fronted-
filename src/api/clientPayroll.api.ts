@@ -74,7 +74,8 @@ export const updateFirmPayrollSettings = (payload: { columnOrder?: string[] }) =
 export const runClientPayroll = (businessClientId: string, month: string) =>
   axiosClient.post(`${base(businessClientId)}/${month}/run`);
 
-export const listClientPayrollRuns = (businessClientId: string) => axiosClient.get(base(businessClientId));
+export const listClientPayrollRuns = (businessClientId: string, params?: any) =>
+  axiosClient.get(base(businessClientId), { params });
 export const getClientPayrollRunDetail = (businessClientId: string, month: string) =>
   axiosClient.get(`${base(businessClientId)}/${month}`);
 

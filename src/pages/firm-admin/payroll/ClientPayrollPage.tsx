@@ -12,6 +12,10 @@ import Badge from "../../../components/ui/Badge.jsx";
 import Modal from "../../../components/ui/Modal.jsx";
 import Spinner from "../../../components/ui/Spinner.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
+import DateRangeFilter from "../../../components/ui/DateRangeFilter.jsx";
+import useResettablePage from "../../../hooks/useResettablePage.js";
+
+const PAGE_SIZE = 15;
 
 function currentMonth() {
   const d = new Date();
@@ -63,6 +67,16 @@ export default function ClientPayrollPage() {
   const [busyMonth, setBusyMonth] = useState<string | null>(null);
   const [confirmRunMonth, setConfirmRunMonth] = useState<string | null>(null);
 
+  // Table below is paginated/filtered independently from `runs` above, which
+  // stays a full fetch — the stat cards (this month's run, latest completed
+  // run, total run count) need the complete history regardless of what page
+  // of history the table itself is showing.
+  const [tableRuns, setTableRuns] = useState<any[]>([]);
+  const [tableMeta, setTableMeta] = useState({ total: 0, totalPages: 1 });
+  const [tableLoading, setTableLoading] = useState(true);
+  const [monthRange, setMonthRange] = useState({ preset: "all", startDate: "", endDate: "" });
+  const [tablePage, setTablePage] = useResettablePage(`${monthRange.startDate}|${monthRange.endDate}`);
+
   async function loadAll() {
     if (!clientId) return;
     setLoading(true);
@@ -80,16 +94,36 @@ export default function ClientPayrollPage() {
     }
   }
 
+  async function loadTableRuns() {
+    if (!clientId) return;
+    setTableLoading(true);
+    try {
+      const params: any = { page: tablePage, limit: PAGE_SIZE };
+      if (monthRange.startDate) params.monthFrom = monthRange.startDate.slice(0, 7);
+      if (monthRange.endDate) params.monthTo = monthRange.endDate.slice(0, 7);
+      const { data } = await payrollApi.listClientPayrollRuns(clientId, params);
+      setTableRuns(data.data);
+      setTableMeta(data.meta || { total: data.data.length, totalPages: 1 });
+    } finally {
+      setTableLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
+  useEffect(() => {
+    loadTableRuns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, tablePage, monthRange.startDate, monthRange.endDate]);
+
   async function handleRun(month: string) {
     setBusyMonth(month);
     try {
       await payrollApi.runClientPayroll(clientId!, month);
-      await loadAll();
+      await Promise.all([loadAll(), loadTableRuns()]);
     } finally {
       setBusyMonth(null);
     }
@@ -248,9 +282,19 @@ export default function ClientPayrollPage() {
       </Card>
 
       <Card className="p-4 sm:p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <FileClock size={16} className="text-text-muted" />
-          <h2 className="text-lg font-semibold text-heading">Payroll runs</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <FileClock size={16} className="text-text-muted" />
+            <h2 className="text-lg font-semibold text-heading">Payroll runs</h2>
+          </div>
+          {runs.length > 0 && (
+            <DateRangeFilter
+              preset={monthRange.preset}
+              startDate={monthRange.startDate}
+              endDate={monthRange.endDate}
+              onChange={setMonthRange}
+            />
+          )}
         </div>
         {runs.length === 0 ? (
           <EmptyState
@@ -263,8 +307,19 @@ export default function ClientPayrollPage() {
               </Button>
             }
           />
+        ) : tableLoading ? (
+          <div className="flex justify-center py-10">
+            <Spinner size={24} />
+          </div>
+        ) : tableRuns.length === 0 ? (
+          <p className="py-6 text-center text-sm text-text-muted">No payroll runs in this date range.</p>
         ) : (
-          <Table columns={runColumns} data={runs} keyField="_id" />
+          <Table
+            columns={runColumns}
+            data={tableRuns}
+            keyField="_id"
+            pagination={{ page: tablePage, totalPages: tableMeta.totalPages, total: tableMeta.total, limit: PAGE_SIZE, onChange: setTablePage }}
+          />
         )}
       </Card>
 

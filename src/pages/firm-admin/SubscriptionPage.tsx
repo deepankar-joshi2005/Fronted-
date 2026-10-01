@@ -1,26 +1,19 @@
 import { useEffect, useState } from "react";
-import {
-  CheckCircle2,
-  CreditCard,
-  Calendar,
-  Wallet,
-  Receipt,
-  History,
-  ChevronDown,
-  ChevronUp,
-  Sprout,
-  Users,
-  Building2,
-  MessageCircle,
-} from "lucide-react";
+import { CheckCircle2, CreditCard, Calendar, Wallet, Receipt, History, Sprout, Users, Building2, MessageCircle } from "lucide-react";
 import * as caFirmApi from "../../api/caFirm.api.js";
 import * as notificationApi from "../../api/notification.api.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import Card from "../../components/ui/Card.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import Button from "../../components/ui/Button.jsx";
+import Table from "../../components/ui/Table.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import Modal from "../../components/ui/Modal.jsx";
+import DateRangeFilter from "../../components/ui/DateRangeFilter.jsx";
+import useResettablePage from "../../hooks/useResettablePage.js";
+
+const PAGE_SIZE = 15;
 
 const PLAN_BADGE = { trial: "brand", active: "success", suspended: "danger", expired: "neutral" };
 const TIER_LABELS = { starter: "Starter", growth: "Growth", enterprise: "Enterprise" };
@@ -63,11 +56,15 @@ export default function SubscriptionPage() {
   const [firmPlan, setFirmPlan] = useState(null);
   const [catalog, setCatalog] = useState(null);
   const [history, setHistory] = useState([]);
+  const [historyMeta, setHistoryMeta] = useState({ total: 0, totalPages: 1 });
+  const [historySummary, setHistorySummary] = useState({ totalPaid: 0, successfulCount: 0 });
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [dateRange, setDateRange] = useState({ preset: "all", startDate: "", endDate: "" });
+  const [page, setPage] = useResettablePage(`${dateRange.startDate}|${dateRange.endDate}`);
   const [loading, setLoading] = useState(true);
   const [payingTier, setPayingTier] = useState(null);
   const [payError, setPayError] = useState({ tier: null, message: "" });
   const [paidDone, setPaidDone] = useState(false);
-  const [showAllHistory, setShowAllHistory] = useState(false);
   const [billingCycles, setBillingCycles] = useState({ starter: "monthly", growth: "monthly", enterprise: "monthly" });
   const [whatsappUsage, setWhatsappUsage] = useState(null);
 
@@ -104,6 +101,7 @@ export default function SubscriptionPage() {
             });
             setPaidDone(true);
             load();
+            loadHistory();
           } catch (err) {
             setPayError({ tier, message: err.response?.data?.message || "Payment verification failed" });
           } finally {
@@ -122,15 +120,25 @@ export default function SubscriptionPage() {
   }
 
   async function load() {
-    const [planRes, catalogRes, historyRes] = await Promise.all([
-      caFirmApi.getMyFirmPlan(),
-      caFirmApi.getPlanCatalog(),
-      caFirmApi.getSubscriptionPaymentHistory(),
-    ]);
+    const [planRes, catalogRes] = await Promise.all([caFirmApi.getMyFirmPlan(), caFirmApi.getPlanCatalog()]);
     setFirmPlan(planRes.data.data);
     setCatalog(catalogRes.data.data);
-    setHistory(historyRes.data.data);
     setLoading(false);
+  }
+
+  async function loadHistory() {
+    setHistoryLoading(true);
+    try {
+      const params: any = { page, limit: PAGE_SIZE };
+      if (dateRange.startDate) params.startDate = dateRange.startDate;
+      if (dateRange.endDate) params.endDate = dateRange.endDate;
+      const { data } = await caFirmApi.getSubscriptionPaymentHistory(params);
+      setHistory(data.data);
+      setHistoryMeta(data.meta || { total: data.data.length, totalPages: 1 });
+      if (data.summary) setHistorySummary(data.summary);
+    } finally {
+      setHistoryLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -143,6 +151,11 @@ export default function SubscriptionPage() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    loadHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, dateRange.startDate, dateRange.endDate]);
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -154,7 +167,7 @@ export default function SubscriptionPage() {
   const currentTier = firmPlan?.plan?.tier;
   const expiryDate = firmPlan?.plan?.expiryDate ? new Date(firmPlan.plan.expiryDate) : null;
   const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
-  const totalPaid = history.filter((p) => p.status === "CAPTURED").reduce((sum, p) => sum + p.amount, 0);
+  const totalPaid = historySummary.totalPaid;
 
   return (
     <div className="flex flex-col gap-6">
@@ -182,7 +195,7 @@ export default function SubscriptionPage() {
           icon={Receipt}
           label="Total Paid"
           value={`${catalog.currency} ${totalPaid.toLocaleString("en-IN")}`}
-          sub={`${history.filter((p) => p.status === "CAPTURED").length} successful payment(s)`}
+          sub={`${historySummary.successfulCount} successful payment(s)`}
           accentBg="bg-success-bg"
           accentText="text-success"
         />
@@ -280,53 +293,42 @@ export default function SubscriptionPage() {
         })}
       </div>
 
-      <div>
-        <div className="mb-3 flex items-center justify-between">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <History size={16} className="text-text-muted" />
             <h2 className="text-lg font-semibold text-heading">Payment history</h2>
           </div>
-          {history.length > 5 && (
-            <button
-              onClick={() => setShowAllHistory((s) => !s)}
-              className="flex items-center gap-1 text-sm font-medium text-brand hover:underline"
-            >
-              {showAllHistory ? "Show less" : "View all"}
-              {showAllHistory ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-            </button>
-          )}
+          <DateRangeFilter
+            preset={dateRange.preset}
+            startDate={dateRange.startDate}
+            endDate={dateRange.endDate}
+            onChange={setDateRange}
+          />
         </div>
-        {history.length === 0 ? (
-          <Card className="p-6 text-center text-sm text-text-muted">No payments yet.</Card>
-        ) : (
-          <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface-2">
-                  <th className="px-4 py-3 font-semibold text-text-muted">Date</th>
-                  <th className="px-4 py-3 font-semibold text-text-muted">Plan</th>
-                  <th className="px-4 py-3 font-semibold text-text-muted">Billing</th>
-                  <th className="px-4 py-3 font-semibold text-text-muted">Amount</th>
-                  <th className="px-4 py-3 font-semibold text-text-muted">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(showAllHistory ? history : history.slice(0, 5)).map((p) => (
-                  <tr key={p._id} className="border-b border-border last:border-0 hover:bg-surface-2/60">
-                    <td className="px-4 py-3 text-text">{new Date(p.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-text">{TIER_LABELS[p.tier]}</td>
-                    <td className="px-4 py-3 text-text capitalize">{p.billingCycle}</td>
-                    <td className="px-4 py-3 font-medium text-text">
-                      {p.currency} {p.amount.toLocaleString("en-IN")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={PAYMENT_STATUS_BADGE[p.status] || "neutral"}>{p.status}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {historyLoading ? (
+          <div className="flex justify-center py-12">
+            <Spinner size={24} />
           </div>
+        ) : history.length === 0 ? (
+          <EmptyState icon={History} title="No payments found" description="Try adjusting the date range, or check back after your first payment." />
+        ) : (
+          <Table
+            columns={[
+              { key: "createdAt", label: "Date", render: (p) => new Date(p.createdAt).toLocaleDateString() },
+              { key: "tier", label: "Plan", render: (p) => TIER_LABELS[p.tier] },
+              { key: "billingCycle", label: "Billing", render: (p) => <span className="capitalize">{p.billingCycle}</span> },
+              { key: "amount", label: "Amount", render: (p) => `${p.currency} ${p.amount.toLocaleString("en-IN")}` },
+              {
+                key: "status",
+                label: "Status",
+                render: (p) => <Badge variant={PAYMENT_STATUS_BADGE[p.status] || "neutral"}>{p.status}</Badge>,
+              },
+            ]}
+            data={history}
+            keyField="_id"
+            pagination={{ page, totalPages: historyMeta.totalPages, total: historyMeta.total, limit: PAGE_SIZE, onChange: setPage }}
+          />
         )}
       </div>
 

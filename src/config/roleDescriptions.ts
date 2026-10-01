@@ -10,13 +10,12 @@ export const ROLE_ORDER = [
 ];
 
 export const ROLE_DESCRIPTIONS = {
-  [ROLES.SUPER_ADMIN]:
-    "Manages CA firm licences, platform-wide settings, and licensing/billing status across every firm.",
+  [ROLES.SUPER_ADMIN]: "Manages CA firm license, platform-wide settings, and tenant isolation across every firm.",
   [ROLES.CA_FIRM_ADMIN]:
-    "Full control over the firm's CRM, Compliance Tool, Personal Finance Tracker and Payroll Management, plus staff and business-client onboarding.",
+    "Full control over firm's CRM, Compliance Tool, and Loan Calculator, plus staff and business client management.",
   [ROLES.CA_FIRM_STAFF]:
-    "Day-to-day user of CRM, Compliance Tool, and Personal Finance Tracker — works on leads and tasks assigned to them.",
+    "Access to assigned clients, Compliance Tool, and Loan Calculator — with role-based access managed by the firm.",
   [ROLES.BUSINESS_CLIENT_ADMIN]:
     "Manages their own business's HRMS independently — employees, leave, attendance, and payroll inputs.",
-  [ROLES.BUSINESS_CLIENT_EMPLOYEE]: "Self-service HRMS access — view profile, apply for leave, download payslips.",
+  [ROLES.BUSINESS_CLIENT_EMPLOYEE]: "Access to personal HRMS records — leave, profile, apply for leave, download payslip.",
 };

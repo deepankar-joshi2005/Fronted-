@@ -10,6 +10,11 @@ import Badge from "../../../components/ui/Badge.jsx";
 import Button from "../../../components/ui/Button.jsx";
 import Spinner from "../../../components/ui/Spinner.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
+import Pagination from "../../../components/ui/Pagination.jsx";
+import useDebouncedValue from "../../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../../hooks/useResettablePage.js";
+
+const PAGE_SIZE = 15;
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   individual: "Individual",
@@ -27,26 +32,45 @@ export default function FinanceTrackerPage() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [profilesMeta, setProfilesMeta] = useState({ total: 0, totalPages: 1 });
+  const [profilesLoading, setProfilesLoading] = useState(true);
+  const [profileSearch, setProfileSearch] = useState("");
+  const debouncedProfileSearch = useDebouncedValue(profileSearch);
+  const [profilesPage, setProfilesPage] = useResettablePage(debouncedProfileSearch);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
   async function load() {
     setLoading(true);
     try {
-      const [directoryRes, profilesRes] = await Promise.all([
-        businessClientApi.listClientDirectory(),
-        financeTrackerApi.listFinanceProfiles(),
-      ]);
-      setRows(directoryRes.data.data || []);
-      setProfiles(profilesRes.data.data || []);
+      const { data } = await businessClientApi.listClientDirectory();
+      setRows(data.data || []);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadProfiles() {
+    setProfilesLoading(true);
+    try {
+      const params: any = { page: profilesPage, limit: PAGE_SIZE };
+      if (debouncedProfileSearch) params.search = debouncedProfileSearch;
+      const { data } = await financeTrackerApi.listFinanceProfiles(params);
+      setProfiles(data.data || []);
+      setProfilesMeta(data.meta || { total: (data.data || []).length, totalPages: 1 });
+    } finally {
+      setProfilesLoading(false);
     }
   }
 
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    loadProfiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profilesPage, debouncedProfileSearch]);
 
   const profileByClientId = useMemo(() => {
     const map = new Map<string, any>();
@@ -90,13 +114,29 @@ export default function FinanceTrackerPage() {
         </Button>
       </div>
 
-      {profiles.length > 0 && (
+      {(profilesMeta.total > 0 || debouncedProfileSearch) && (
         <Card className="p-4 sm:p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <PiggyBank size={16} className="text-text-muted" />
-            <h2 className="text-lg font-semibold text-heading">Tracked profiles</h2>
-            <Badge variant="neutral">{profiles.length}</Badge>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <PiggyBank size={16} className="text-text-muted" />
+              <h2 className="text-lg font-semibold text-heading">Tracked profiles</h2>
+              <Badge variant="neutral">{profilesMeta.total}</Badge>
+            </div>
+            <div className="w-full max-w-xs">
+              <Input
+                placeholder="Search tracked profiles..."
+                value={profileSearch}
+                onChange={(e: any) => setProfileSearch(e.target.value)}
+              />
+            </div>
           </div>
+          {profilesLoading ? (
+            <div className="flex justify-center py-8">
+              <Spinner size={24} />
+            </div>
+          ) : profiles.length === 0 ? (
+            <p className="py-6 text-center text-sm text-text-muted">No tracked profiles match your search.</p>
+          ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {profiles.map((p) => (
               <button
@@ -122,6 +162,14 @@ export default function FinanceTrackerPage() {
               </button>
             ))}
           </div>
+          )}
+          <Pagination
+            page={profilesPage}
+            totalPages={profilesMeta.totalPages}
+            total={profilesMeta.total}
+            limit={PAGE_SIZE}
+            onChange={setProfilesPage}
+          />
         </Card>
       )}
 

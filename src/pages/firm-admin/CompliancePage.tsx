@@ -32,19 +32,110 @@ import Badge from "../../components/ui/Badge.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import DateRangeFilter from "../../components/ui/DateRangeFilter.jsx";
 import ComplianceCalendar from "../../components/compliance/ComplianceCalendar.jsx";
+import useDebouncedValue from "../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../hooks/useResettablePage.js";
+
+const PAGE_SIZE = 15;
 
 const CATEGORY_LABELS = { gst: "GST", tds: "TDS", roc: "ROC", income_tax: "Income Tax", other: "Other" };
 const RECURRENCE_LABELS = { one_time: "One-time", monthly: "Monthly", quarterly: "Quarterly", annual: "Annual" };
 const STATUS_LABELS = { pending: "Pending", in_progress: "In Progress", done: "Done" };
 const STATUS_BADGE = { pending: "neutral", in_progress: "brand", done: "success" };
-const TEMPLATES = [
-  { label: "Custom task", title: "", category: "other", recurrence: "one_time" },
-  { label: "GST Monthly Filing", title: "GST Monthly Filing", category: "gst", recurrence: "monthly" },
-  { label: "TDS Quarterly Filing", title: "TDS Quarterly Filing", category: "tds", recurrence: "quarterly" },
-  { label: "ROC Annual Filing", title: "ROC Annual Filing", category: "roc", recurrence: "annual" },
-  { label: "Income Tax Return", title: "Income Tax Return", category: "income_tax", recurrence: "annual" },
-];
+
+// Every category's real-world filing/subtype vocabulary — powers the Subcategory
+// select (dependent on Category) and the "Start from a template" picker. Not a
+// separate DB collection on purpose (see ComplianceTask model comment): these are
+// just title/category/subCategory/recurrence presets, every task is still created
+// manually per period.
+const TASK_CATALOG = {
+  gst: [
+    { value: "gstr1", label: "GSTR-1 — Outward Supplies", recurrence: "monthly" },
+    { value: "gstr3b", label: "GSTR-3B — Summary Return", recurrence: "monthly" },
+    { value: "gstr9", label: "GSTR-9 — Annual Return", recurrence: "annual" },
+    { value: "gstr9c", label: "GSTR-9C — Reconciliation Statement", recurrence: "annual" },
+    { value: "gstr4", label: "GSTR-4 — Composition Scheme Return", recurrence: "annual" },
+    { value: "cmp08", label: "CMP-08 — Composition Quarterly Statement", recurrence: "quarterly" },
+    { value: "gstr7", label: "GSTR-7 — TDS under GST", recurrence: "monthly" },
+    { value: "gstr8", label: "GSTR-8 — TCS under GST (E-commerce)", recurrence: "monthly" },
+    { value: "gstr5", label: "GSTR-5 — Non-Resident Taxable Person", recurrence: "monthly" },
+    { value: "gstr6", label: "GSTR-6 — Input Service Distributor", recurrence: "monthly" },
+    { value: "gst_registration", label: "GST Registration / Amendment", recurrence: "one_time" },
+    { value: "eway_bill", label: "E-Way Bill Compliance", recurrence: "one_time" },
+    { value: "gst_refund", label: "GST Refund Application", recurrence: "one_time" },
+    { value: "lut", label: "LUT — Letter of Undertaking (Exports)", recurrence: "annual" },
+    { value: "itc04", label: "ITC-04 — Job Work Return", recurrence: "quarterly" },
+  ],
+  tds: [
+    { value: "24q", label: "24Q — Salary TDS Return", recurrence: "quarterly" },
+    { value: "26q", label: "26Q — Non-Salary TDS Return (Resident)", recurrence: "quarterly" },
+    { value: "27q", label: "27Q — TDS Return (Non-Resident)", recurrence: "quarterly" },
+    { value: "27eq", label: "27EQ — TCS Return", recurrence: "quarterly" },
+    { value: "tds_payment", label: "TDS Payment — Challan 281", recurrence: "monthly" },
+    { value: "form16", label: "Form 16 — Salary TDS Certificate", recurrence: "annual" },
+    { value: "form16a", label: "Form 16A — Non-Salary TDS Certificate", recurrence: "quarterly" },
+    { value: "26as_recon", label: "Form 26AS / AIS Reconciliation", recurrence: "quarterly" },
+    { value: "26qb", label: "Form 26QB — TDS on Property Purchase", recurrence: "one_time" },
+    { value: "26qc", label: "Form 26QC — TDS on Rent", recurrence: "one_time" },
+    { value: "27d", label: "Form 27D — TCS Certificate", recurrence: "quarterly" },
+    { value: "tds_lower_deduction", label: "Lower/Nil Deduction Certificate (Form 13)", recurrence: "annual" },
+  ],
+  income_tax: [
+    { value: "itr1", label: "ITR-1 (Sahaj)", recurrence: "annual" },
+    { value: "itr2", label: "ITR-2", recurrence: "annual" },
+    { value: "itr3", label: "ITR-3", recurrence: "annual" },
+    { value: "itr4", label: "ITR-4 (Sugam)", recurrence: "annual" },
+    { value: "itr5", label: "ITR-5", recurrence: "annual" },
+    { value: "itr6", label: "ITR-6", recurrence: "annual" },
+    { value: "itr7", label: "ITR-7", recurrence: "annual" },
+    { value: "advance_tax", label: "Advance Tax Payment", recurrence: "quarterly" },
+    { value: "tax_audit", label: "Tax Audit Report — 3CA/3CB-3CD", recurrence: "annual" },
+    { value: "form3ceb", label: "Form 3CEB — Transfer Pricing Report", recurrence: "annual" },
+    { value: "form15cacb", label: "Form 15CA/15CB — Foreign Remittance", recurrence: "one_time" },
+    { value: "form10e", label: "Form 10E — Salary Arrears Relief", recurrence: "one_time" },
+    { value: "scrutiny", label: "Assessment / Scrutiny Response", recurrence: "one_time" },
+    { value: "revised_return", label: "Rectification / Revised Return", recurrence: "one_time" },
+    { value: "lower_tds_cert", label: "Lower TDS Certificate (Form 13)", recurrence: "annual" },
+  ],
+  roc: [
+    { value: "aoc4", label: "AOC-4 — Financial Statements", recurrence: "annual" },
+    { value: "mgt7", label: "MGT-7 / MGT-7A — Annual Return", recurrence: "annual" },
+    { value: "dir3kyc", label: "DIR-3 KYC — Director KYC", recurrence: "annual" },
+    { value: "adt1", label: "ADT-1 — Auditor Appointment", recurrence: "annual" },
+    { value: "dpt3", label: "DPT-3 — Return of Deposits", recurrence: "annual" },
+    { value: "inc20a", label: "INC-20A — Commencement of Business", recurrence: "one_time" },
+    { value: "inc22", label: "INC-22 — Registered Office Change", recurrence: "one_time" },
+    { value: "msme1", label: "MSME-1 — Half-Yearly Return", recurrence: "annual" },
+    { value: "pas3", label: "PAS-3 — Return of Allotment", recurrence: "one_time" },
+    { value: "agm", label: "AGM Compliance", recurrence: "annual" },
+    { value: "board_resolution", label: "Board Resolution / Minutes Filing", recurrence: "one_time" },
+    { value: "statutory_registers", label: "Statutory Registers Maintenance", recurrence: "annual" },
+    { value: "din_change", label: "DIR-6 / DIR-12 — Director Change", recurrence: "one_time" },
+    { value: "llp_form8", label: "LLP Form 8 — Statement of Accounts", recurrence: "annual" },
+    { value: "llp_form11", label: "LLP Form 11 — Annual Return", recurrence: "annual" },
+  ],
+  other: [
+    { value: "pt_registration", label: "Professional Tax Registration", recurrence: "one_time" },
+    { value: "pt_return", label: "Professional Tax Return", recurrence: "monthly" },
+    { value: "esi_return", label: "ESI Return", recurrence: "monthly" },
+    { value: "pf_return", label: "PF Return (EPF)", recurrence: "monthly" },
+    { value: "shop_establishment", label: "Shop & Establishment Registration/Renewal", recurrence: "annual" },
+    { value: "trademark", label: "Trademark / IP Filing", recurrence: "one_time" },
+    { value: "msme_udyam", label: "MSME / Udyam Registration", recurrence: "one_time" },
+    { value: "fssai", label: "FSSAI License Registration/Renewal", recurrence: "annual" },
+    { value: "iec", label: "IEC — Import Export Code", recurrence: "one_time" },
+    { value: "custom", label: "Custom Task", recurrence: "one_time" },
+  ],
+};
+
+// Flat value -> label lookup for display (table column, view modal) regardless
+// of which category a subCategory value belongs to.
+const SUBCATEGORY_LABELS = Object.fromEntries(
+  Object.values(TASK_CATALOG)
+    .flat()
+    .map((item) => [item.value, item.label])
+);
 
 function formatDate(d) {
   return d ? new Date(d).toLocaleDateString() : "—";
@@ -54,6 +145,7 @@ function TaskFormModal({ isAdmin, staffOptions, clientOptions, onClose, onCreate
   const [form, setForm] = useState({
     title: "",
     category: "other",
+    subCategory: "custom",
     recurrence: "one_time",
     dueDate: "",
     clientId: "",
@@ -66,9 +158,31 @@ function TaskFormModal({ isAdmin, staffOptions, clientOptions, onClose, onCreate
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
   }
 
-  function applyTemplate(e) {
-    const tpl = TEMPLATES.find((t) => t.label === e.target.value);
-    if (tpl) setForm((f) => ({ ...f, title: tpl.title, category: tpl.category, recurrence: tpl.recurrence }));
+  // "Main task" (category) — jumps to that category's first task and prefills
+  // title/recurrence from it, same as picking it in the "Task" select below.
+  function updateCategory(e) {
+    const category = e.target.value;
+    const first = TASK_CATALOG[category]?.[0];
+    setForm((f) => ({
+      ...f,
+      category,
+      subCategory: first?.value || "",
+      title: first && first.value !== "custom" ? first.label : "",
+      recurrence: first?.recurrence || f.recurrence,
+    }));
+  }
+
+  // "Task" (subcategory) — prefills title/recurrence from the picked filing
+  // type; picking "Custom Task" clears the title for free-form entry instead.
+  function updateSubCategory(e) {
+    const subCategory = e.target.value;
+    const item = TASK_CATALOG[form.category]?.find((i) => i.value === subCategory);
+    setForm((f) => ({
+      ...f,
+      subCategory,
+      title: item && item.value !== "custom" ? item.label : "",
+      recurrence: item?.recurrence || f.recurrence,
+    }));
   }
 
   async function handleSubmit(e) {
@@ -110,22 +224,29 @@ function TaskFormModal({ isAdmin, staffOptions, clientOptions, onClose, onCreate
             {error}
           </div>
         )}
-        <Select label="Start from a template" onChange={applyTemplate} defaultValue="Custom task">
-          {TEMPLATES.map((t) => (
-            <option key={t.label} value={t.label}>
-              {t.label}
-            </option>
-          ))}
-        </Select>
-        <Input label="Title" required value={form.title} onChange={update("title")} />
-        <div className="grid grid-cols-2 gap-4">
-          <Select label="Category" value={form.category} onChange={update("category")}>
+        <div className={TASK_CATALOG[form.category]?.length ? "grid grid-cols-2 gap-4" : ""}>
+          <Select label="Main task" value={form.category} onChange={updateCategory}>
             {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
               <option key={v} value={v}>
                 {l}
               </option>
             ))}
           </Select>
+          {/* Only rendered when the selected main task actually has filing
+              types under it — a category with nothing in TASK_CATALOG just
+              leaves title/recurrence for manual entry below. */}
+          {TASK_CATALOG[form.category]?.length > 0 && (
+            <Select label="Task" value={form.subCategory} onChange={updateSubCategory}>
+              {TASK_CATALOG[form.category].map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
+        <Input label="Title" required value={form.title} onChange={update("title")} />
+        <div className="grid grid-cols-2 gap-4">
           <Select label="Recurrence" value={form.recurrence} onChange={update("recurrence")}>
             {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
               <option key={v} value={v}>
@@ -133,21 +254,19 @@ function TaskFormModal({ isAdmin, staffOptions, clientOptions, onClose, onCreate
               </option>
             ))}
           </Select>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
           <Input label="Due date" type="date" required value={form.dueDate} onChange={update("dueDate")} />
-          <Select label="Client" required value={form.clientId} onChange={update("clientId")}>
-            <option value="" disabled>
-              Select client
-            </option>
-            {clientOptions.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name}
-                {c.company ? ` (${c.company})` : ""}
-              </option>
-            ))}
-          </Select>
         </div>
+        <Select label="Client" required value={form.clientId} onChange={update("clientId")}>
+          <option value="" disabled>
+            Select client
+          </option>
+          {clientOptions.map((c) => (
+            <option key={c._id} value={c._id}>
+              {c.name}
+              {c.company ? ` (${c.company})` : ""}
+            </option>
+          ))}
+        </Select>
         {isAdmin && (
           <Select label="Assign to" value={form.assignedTo} onChange={update("assignedTo")}>
             <option value="">Unassigned</option>
@@ -264,7 +383,10 @@ function ViewTaskModal({ task, onClose, onChanged }) {
           </div>
           <div>
             <p className="text-xs text-text-muted">Category</p>
-            <p className="text-text">{CATEGORY_LABELS[task.category]}</p>
+            <p className="text-text">
+              {CATEGORY_LABELS[task.category]}
+              {task.subCategory && SUBCATEGORY_LABELS[task.subCategory] ? ` — ${SUBCATEGORY_LABELS[task.subCategory]}` : ""}
+            </p>
           </div>
           <div>
             <p className="text-xs text-text-muted">Recurrence</p>
@@ -491,6 +613,7 @@ function EditTaskModal({ task, staffOptions, onClose, onChanged }) {
   const [form, setForm] = useState({
     title: task.title,
     category: task.category,
+    subCategory: task.subCategory || TASK_CATALOG[task.category]?.[0]?.value || "",
     recurrence: task.recurrence,
     status: task.status,
     dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
@@ -505,6 +628,11 @@ function EditTaskModal({ task, staffOptions, onClose, onChanged }) {
 
   function update(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+  }
+
+  function updateCategory(e) {
+    const category = e.target.value;
+    setForm((f) => ({ ...f, category, subCategory: TASK_CATALOG[category]?.[0]?.value || "" }));
   }
   function toggleDoc(i) {
     setDocuments((docs) => docs.map((d, idx) => (idx === i ? { ...d, done: !d.done } : d)));
@@ -577,13 +705,22 @@ function EditTaskModal({ task, staffOptions, onClose, onChanged }) {
         </p>
         <Input label="Title" required value={form.title} onChange={update("title")} />
         <div className="grid grid-cols-2 gap-4">
-          <Select label="Category" value={form.category} onChange={update("category")}>
+          <Select label="Category" value={form.category} onChange={updateCategory}>
             {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
               <option key={v} value={v}>
                 {l}
               </option>
             ))}
           </Select>
+          <Select label="Subcategory" value={form.subCategory} onChange={update("subCategory")}>
+            {(TASK_CATALOG[form.category] || []).map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
           <Select label="Recurrence" value={form.recurrence} onChange={update("recurrence")}>
             {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
               <option key={v} value={v}>
@@ -591,8 +728,6 @@ function EditTaskModal({ task, staffOptions, onClose, onChanged }) {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
           <Select label="Status" value={form.status} onChange={update("status")}>
             {Object.entries(STATUS_LABELS).map(([v, l]) => (
               <option key={v} value={v}>
@@ -600,8 +735,8 @@ function EditTaskModal({ task, staffOptions, onClose, onChanged }) {
               </option>
             ))}
           </Select>
-          <Input label="Due date" type="date" required value={form.dueDate} onChange={update("dueDate")} />
         </div>
+        <Input label="Due date" type="date" required value={form.dueDate} onChange={update("dueDate")} />
         <Select label="Assigned to" value={form.assignedTo} onChange={update("assignedTo")}>
           <option value="">Unassigned</option>
           {staffOptions.map((s) => (
@@ -679,10 +814,23 @@ export default function CompliancePage() {
 
   const [dashboard, setDashboard] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [clientOptions, setClientOptions] = useState([]);
   const [staffOptions, setStaffOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+  const [clientFilter, setClientFilter] = useState("");
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+  const [dateRange, setDateRange] = useState({ preset: "all", startDate: "", endDate: "" });
+  const [page, setPage] = useResettablePage(
+    `${status}|${debouncedSearch}|${clientFilter}|${categoryFilters.join(",")}|${dateRange.startDate}|${dateRange.endDate}`
+  );
+
+  function toggleCategoryFilter(category) {
+    setCategoryFilters((prev) => (prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]));
+  }
   const [modalOpen, setModalOpen] = useState(false);
   const [viewTask, setViewTask] = useState(null);
   const [editTask, setEditTask] = useState(null);
@@ -692,13 +840,19 @@ export default function CompliancePage() {
   const [view, setView] = useState("list");
   const [refreshTick, setRefreshTick] = useState(0);
 
-  async function loadTasks(statusValue = status) {
+  async function loadTasks() {
     setLoading(true);
     try {
-      const params = {};
-      if (statusValue) params.status = statusValue;
+      const params: any = { page, limit: PAGE_SIZE };
+      if (status) params.status = status;
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (clientFilter) params.clientId = clientFilter;
+      if (categoryFilters.length > 0) params.category = categoryFilters.join(",");
+      if (dateRange.startDate) params.dueFrom = dateRange.startDate;
+      if (dateRange.endDate) params.dueTo = dateRange.endDate;
       const { data } = await complianceApi.listTasks(params);
       setTasks(data.data);
+      setMeta(data.meta || { total: data.data.length, totalPages: 1 });
     } finally {
       setLoading(false);
     }
@@ -725,9 +879,9 @@ export default function CompliancePage() {
   }, []);
 
   useEffect(() => {
-    loadTasks(status);
+    loadTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [page, status, debouncedSearch, clientFilter, categoryFilters, dateRange.startDate, dateRange.endDate]);
 
   function refreshAll() {
     loadTasks();
@@ -749,7 +903,18 @@ export default function CompliancePage() {
         </button>
       ),
     },
-    { key: "category", label: "Category", render: (row) => CATEGORY_LABELS[row.category] },
+    {
+      key: "category",
+      label: "Category",
+      render: (row) => (
+        <div>
+          <p className="text-text">{CATEGORY_LABELS[row.category]}</p>
+          {row.subCategory && SUBCATEGORY_LABELS[row.subCategory] && (
+            <p className="text-xs text-text-muted">{SUBCATEGORY_LABELS[row.subCategory]}</p>
+          )}
+        </div>
+      ),
+    },
     {
       key: "dueDate",
       label: "Due",
@@ -846,8 +1011,8 @@ export default function CompliancePage() {
         </div>
       )}
 
-      <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex gap-1 rounded-xl bg-surface-2 p-1">
+      <Card className="flex flex-col gap-4 p-4">
+        <div className="flex gap-1 self-start rounded-xl bg-surface-2 p-1">
           <button
             type="button"
             onClick={() => setView("list")}
@@ -867,16 +1032,68 @@ export default function CompliancePage() {
             <CalendarDays size={14} /> Calendar
           </button>
         </div>
+
         {view === "list" && (
-          <div className="w-full sm:w-56">
-            <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">All statuses</option>
-              {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                <option key={v} value={v}>
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="w-full sm:w-52">
+                <Input label="Search" placeholder="Search by task title..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+              <div className="w-full sm:w-44">
+                <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  <option value="">All statuses</option>
+                  {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>
+                      {l}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="w-full sm:w-52">
+                <Select label="Client" value={clientFilter} onChange={(e) => setClientFilter(e.target.value)}>
+                  <option value="">All clients</option>
+                  {clientOptions.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                      {c.company ? ` (${c.company})` : ""}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <DateRangeFilter
+                preset={dateRange.preset}
+                startDate={dateRange.startDate}
+                endDate={dateRange.endDate}
+                onChange={setDateRange}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-text-muted">Task:</span>
+              {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => toggleCategoryFilter(v)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    categoryFilters.includes(v)
+                      ? "border-brand bg-brand-soft text-brand"
+                      : "border-border text-text-muted hover:text-text"
+                  }`}
+                >
                   {l}
-                </option>
+                </button>
               ))}
-            </Select>
+              {categoryFilters.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilters([])}
+                  className="text-xs font-medium text-text-muted underline hover:text-text"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         )}
       </Card>
@@ -890,8 +1107,8 @@ export default function CompliancePage() {
       ) : tasks.length === 0 ? (
         <EmptyState
           icon={ClipboardCheck}
-          title="No compliance tasks yet"
-          description="Add a task for one of your clients to start tracking deadlines."
+          title="No compliance tasks found"
+          description="Try adjusting your search or filters, or add a task for one of your clients."
           action={
             canAdd && (
               <Button onClick={() => setModalOpen(true)} size="sm">
@@ -901,7 +1118,12 @@ export default function CompliancePage() {
           }
         />
       ) : (
-        <Table columns={columns} data={tasks} keyField="_id" />
+        <Table
+          columns={columns}
+          data={tasks}
+          keyField="_id"
+          pagination={{ page, totalPages: meta.totalPages, total: meta.total, limit: PAGE_SIZE, onChange: setPage }}
+        />
       )}
 
       {modalOpen && (

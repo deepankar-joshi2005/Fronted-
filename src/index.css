@@ -200,3 +200,9 @@ body {
 .dark-section-gradient {
   background-image: radial-gradient(900px circle at 15% 0%, var(--dark-section-bg-2) 0%, var(--dark-section-bg) 55%);
 }
+
+/* Faint dot-grid texture used behind hero / CTA illustrations */
+.dot-grid {
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 18px 18px;
+}

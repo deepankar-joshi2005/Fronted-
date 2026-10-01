@@ -9,22 +9,34 @@ import Badge from "../../components/ui/Badge.jsx";
 import Button from "../../components/ui/Button.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import DateRangeFilter from "../../components/ui/DateRangeFilter.jsx";
+import useDebouncedValue from "../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../hooks/useResettablePage.js";
 import { ROLE_LABELS } from "../../config/roles.js";
+
+const PAGE_SIZE = 15;
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [role, setRole] = useState("");
+  const [dateRange, setDateRange] = useState({ preset: "all", startDate: "", endDate: "" });
+  const [page, setPage] = useResettablePage(`${role}|${debouncedSearch}|${dateRange.startDate}|${dateRange.endDate}`);
 
   async function load() {
     setLoading(true);
     try {
-      const params = {};
-      if (search) params.search = search;
+      const params: any = { page, limit: PAGE_SIZE };
+      if (debouncedSearch) params.search = debouncedSearch;
       if (role) params.role = role;
+      if (dateRange.startDate) params.startDate = dateRange.startDate;
+      if (dateRange.endDate) params.endDate = dateRange.endDate;
       const { data } = await userApi.listUsers(params);
       setUsers(data.data);
+      setMeta(data.meta || { total: data.data.length, totalPages: 1 });
     } finally {
       setLoading(false);
     }
@@ -33,7 +45,7 @@ export default function UsersPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role]);
+  }, [page, role, debouncedSearch, dateRange.startDate, dateRange.endDate]);
 
   async function handleToggle(user) {
     await userApi.toggleUserActive(user.id);
@@ -76,18 +88,12 @@ export default function UsersPage() {
         <p className="mt-1 text-sm text-text-muted">Every account across every CA firm on the platform.</p>
       </div>
 
-      <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            load();
-          }}
-          className="max-w-sm flex-1"
-        >
-          <Input placeholder="Search name or email..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </form>
+      <Card className="flex flex-wrap items-end gap-3 p-4">
+        <div className="w-full max-w-sm">
+          <Input label="Search" placeholder="Search name or email..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
         <div className="w-full sm:w-56">
-          <Select value={role} onChange={(e) => setRole(e.target.value)}>
+          <Select label="Role" value={role} onChange={(e) => setRole(e.target.value)}>
             <option value="">All roles</option>
             <option value="ca_firm_admin">CA Firm Admin</option>
             <option value="ca_firm_staff">CA Firm Staff</option>
@@ -95,6 +101,12 @@ export default function UsersPage() {
             <option value="business_client_employee">Employee</option>
           </Select>
         </div>
+        <DateRangeFilter
+          preset={dateRange.preset}
+          startDate={dateRange.startDate}
+          endDate={dateRange.endDate}
+          onChange={setDateRange}
+        />
       </Card>
 
       {loading ? (
@@ -104,7 +116,12 @@ export default function UsersPage() {
       ) : users.length === 0 ? (
         <EmptyState icon={UsersIcon} title="No users found" description="Try a different search or filter." />
       ) : (
-        <Table columns={columns} data={users} keyField="id" />
+        <Table
+          columns={columns}
+          data={users}
+          keyField="id"
+          pagination={{ page, totalPages: meta.totalPages, total: meta.total, limit: PAGE_SIZE, onChange: setPage }}
+        />
       )}
     </div>
   );

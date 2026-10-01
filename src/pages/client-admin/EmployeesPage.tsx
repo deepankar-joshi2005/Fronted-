@@ -2,13 +2,19 @@ import { useEffect, useState } from "react";
 import { Users, Pencil, Ban, Power, Download, Eye } from "lucide-react";
 import * as businessClientApi from "../../api/businessClient.api.js";
 import Table from "../../components/ui/Table.jsx";
+import Card from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
 import Input from "../../components/ui/Input.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import DateRangeFilter from "../../components/ui/DateRangeFilter.jsx";
+import useDebouncedValue from "../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../hooks/useResettablePage.js";
 import { sanitizePan, sanitizePhone, validatePan, validatePhone, validateEmail } from "../../utils/validators.js";
+
+const PAGE_SIZE = 15;
 
 const SANITIZERS = {
   phone: sanitizePhone,
@@ -245,7 +251,13 @@ function EmployeeViewModal({ open, onClose, employee }) {
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<any[]>([]);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+  const [dateRange, setDateRange] = useState({ preset: "all", startDate: "", endDate: "" });
+  const [page, setPage] = useResettablePage(`${debouncedSearch}|${dateRange.startDate}|${dateRange.endDate}`);
   const [formOpen, setFormOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
@@ -254,8 +266,13 @@ export default function EmployeesPage() {
   async function load() {
     setLoading(true);
     try {
-      const { data } = await businessClientApi.listMyEmployees();
+      const params: any = { page, limit: PAGE_SIZE };
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (dateRange.startDate) params.startDate = dateRange.startDate;
+      if (dateRange.endDate) params.endDate = dateRange.endDate;
+      const { data } = await businessClientApi.listMyEmployees(params);
       setEmployees(data.data || []);
+      setMeta(data.meta || { total: (data.data || []).length, totalPages: 1 });
     } finally {
       setLoading(false);
     }
@@ -263,11 +280,24 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, debouncedSearch, dateRange.startDate, dateRange.endDate]);
 
   async function handleToggleActive(employee) {
     await businessClientApi.updateMyEmployee(employee._id, { isActive: !employee.isActive });
     load();
+  }
+
+  // Exports the complete roster, not just the current page/search — fetches
+  // fresh, unpaginated data rather than relying on `employees` in state.
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const { data } = await businessClientApi.listMyEmployees();
+      exportEmployeeIdsToCsv(data.data || []);
+    } finally {
+      setExporting(false);
+    }
   }
 
   const columns = [
@@ -358,10 +388,22 @@ export default function EmployeesPage() {
             Employees who submit their details through your onboarding link show up here automatically.
           </p>
         </div>
-        <Button variant="secondary" disabled={employees.length === 0} onClick={() => exportEmployeeIdsToCsv(employees)}>
+        <Button variant="secondary" disabled={meta.total === 0} loading={exporting} onClick={handleExport}>
           <Download size={16} /> Export Employee IDs
         </Button>
       </div>
+
+      <Card className="flex flex-wrap items-end gap-3 p-4">
+        <div className="w-full max-w-sm">
+          <Input label="Search" placeholder="Search employees..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <DateRangeFilter
+          preset={dateRange.preset}
+          startDate={dateRange.startDate}
+          endDate={dateRange.endDate}
+          onChange={setDateRange}
+        />
+      </Card>
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -370,11 +412,16 @@ export default function EmployeesPage() {
       ) : employees.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No employees yet"
-          description="Employees who submit their details through your onboarding link (see Dashboard) will show up here."
+          title="No employees found"
+          description="Try adjusting your search or date range — or wait for employees to submit details through your onboarding link."
         />
       ) : (
-        <Table columns={columns} data={employees} keyField="_id" />
+        <Table
+          columns={columns}
+          data={employees}
+          keyField="_id"
+          pagination={{ page, totalPages: meta.totalPages, total: meta.total, limit: PAGE_SIZE, onChange: setPage }}
+        />
       )}
 
       <EmployeeFormModal

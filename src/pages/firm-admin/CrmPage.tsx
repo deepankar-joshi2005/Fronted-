@@ -35,7 +35,11 @@ import Badge from "../../components/ui/Badge.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import Pagination from "../../components/ui/Pagination.jsx";
+import useResettablePage from "../../hooks/useResettablePage.js";
 import { sanitizePhone, validatePhone, validateEmail } from "../../utils/validators.js";
+
+const PAGE_SIZE = 15;
 
 // Pipeline stages shown in the stepper — "lost" is a dead end, shown separately.
 const STATUS_ORDER = ["new", "contacted", "qualified", "converted"];
@@ -1320,16 +1324,20 @@ export default function CrmPage() {
 
   const [dashboard, setDashboard] = useState(null);
   const [leads, setLeads] = useState([]);
+  const [leadsMeta, setLeadsMeta] = useState({ total: 0, totalPages: 1 });
   const [staffOptions, setStaffOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [leadsPage, setLeadsPage] = useResettablePage(`${search}|${status}|${dateFrom}|${dateTo}`);
 
   const [clients, setClients] = useState([]);
+  const [clientsMeta, setClientsMeta] = useState({ total: 0, totalPages: 1 });
   const [clientsLoading, setClientsLoading] = useState(true);
   const [clientSearch, setClientSearch] = useState("");
+  const [clientsPage, setClientsPage] = useResettablePage(clientSearch);
   const [provisionTarget, setProvisionTarget] = useState(null);
   const [provisionMode, setProvisionMode] = useState("hrms");
 
@@ -1337,28 +1345,30 @@ export default function CrmPage() {
   const [editingLead, setEditingLead] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  async function loadLeads(searchTerm = search, statusValue = status, fromValue = dateFrom, toValue = dateTo) {
+  async function loadLeads(searchTerm = search, statusValue = status, fromValue = dateFrom, toValue = dateTo, pageValue = leadsPage) {
     setLoading(true);
     try {
-      const params = {};
+      const params: any = { page: pageValue, limit: PAGE_SIZE };
       if (searchTerm) params.search = searchTerm;
       if (statusValue) params.status = statusValue;
       if (fromValue) params.dateFrom = fromValue;
       if (toValue) params.dateTo = toValue;
       const { data } = await crmApi.listLeads(params);
       setLeads(data.data);
+      setLeadsMeta(data.meta || { total: data.data.length, totalPages: 1 });
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadClients(searchTerm = clientSearch) {
+  async function loadClients(searchTerm = clientSearch, pageValue = clientsPage) {
     setClientsLoading(true);
     try {
-      const params = { status: "converted", limit: 100 };
+      const params: any = { status: "converted", page: pageValue, limit: PAGE_SIZE };
       if (searchTerm) params.search = searchTerm;
       const { data } = await crmApi.listLeads(params);
       setClients(data.data);
+      setClientsMeta(data.meta || { total: data.data.length, totalPages: 1 });
     } finally {
       setClientsLoading(false);
     }
@@ -1371,7 +1381,6 @@ export default function CrmPage() {
 
   useEffect(() => {
     loadDashboard();
-    loadClients();
     if (isAdmin) {
       staffApi.listStaff().then(({ data }) => {
         setStaffOptions([{ id: user.id, name: `${user.name} (You)` }, ...data.data.map((s) => ({ id: s.id, name: s.name }))]);
@@ -1381,9 +1390,14 @@ export default function CrmPage() {
   }, []);
 
   useEffect(() => {
-    loadLeads(search, status, dateFrom, dateTo);
+    loadLeads(search, status, dateFrom, dateTo, leadsPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, dateFrom, dateTo]);
+  }, [status, dateFrom, dateTo, leadsPage]);
+
+  useEffect(() => {
+    loadClients(clientSearch, clientsPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientsPage]);
 
   function clearDateRange() {
     setDateFrom("");
@@ -1466,7 +1480,7 @@ export default function CrmPage() {
             tab === "clients" ? "bg-surface text-heading shadow-sm" : "text-text-muted hover:text-text"
           }`}
         >
-          <Users size={14} /> Clients ({clients.length})
+          <Users size={14} /> Clients ({clientsMeta.total})
         </button>
       </div>
 
@@ -1530,6 +1544,15 @@ export default function CrmPage() {
                   onChanged={refreshAll}
                 />
               ))}
+              <Card className="p-0">
+                <Pagination
+                  page={leadsPage}
+                  totalPages={leadsMeta.totalPages}
+                  total={leadsMeta.total}
+                  limit={PAGE_SIZE}
+                  onChange={setLeadsPage}
+                />
+              </Card>
             </div>
           )}
         </>
@@ -1581,6 +1604,15 @@ export default function CrmPage() {
                   onChanged={refreshAll}
                 />
               ))}
+              <Card className="p-0">
+                <Pagination
+                  page={clientsPage}
+                  totalPages={clientsMeta.totalPages}
+                  total={clientsMeta.total}
+                  limit={PAGE_SIZE}
+                  onChange={setClientsPage}
+                />
+              </Card>
             </div>
           )}
         </>

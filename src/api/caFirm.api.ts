@@ -15,4 +15,4 @@ export const getMyFirmPlan = () => axiosClient.get("/ca-firms/my-plan");
 export const getPlanCatalog = () => axiosClient.get("/ca-firms/plans");
 export const createSubscriptionOrder = (payload) => axiosClient.post("/ca-firms/me/subscription/create-order", payload);
 export const verifySubscriptionPayment = (payload) => axiosClient.post("/ca-firms/me/subscription/verify-payment", payload);
-export const getSubscriptionPaymentHistory = () => axiosClient.get("/ca-firms/me/subscription/history");
+export const getSubscriptionPaymentHistory = (params) => axiosClient.get("/ca-firms/me/subscription/history", { params });
