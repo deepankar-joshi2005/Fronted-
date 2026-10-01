@@ -11,6 +11,7 @@ import { BUSINESS_CLIENT_ROLES, redirectToHrms } from "../utils/hrmsSso.js";
 import Spinner from "../components/ui/Spinner.jsx";
 
 import LandingPage from "../pages/public/LandingPage.jsx";
+import ModuleDetailPage from "../pages/public/ModuleDetailPage.jsx";
 import LoginPage from "../pages/public/LoginPage.jsx";
 import SignupPage from "../pages/public/SignupPage.jsx";
 import NotFoundPage from "../pages/public/NotFoundPage.jsx";
@@ -79,6 +80,8 @@ export default function AppRoutes() {
     <Routes>
       <Route element={<PublicLayout />}>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/modules/:moduleId" element={<ModuleDetailPage />} />
+        <Route path="/modules" element={<ModuleDetailPage />} />
       </Route>
 
       <Route

@@ -1,11 +1,11 @@
 import axiosClient from "./axiosClient.js";
 
 export const getBusinessClientSummary = () => axiosClient.get("/business-clients/summary");
-export const listAllBusinessClients = () => axiosClient.get("/business-clients/all");
+export const listAllBusinessClients = (params = {}) => axiosClient.get("/business-clients/all", { params });
 export const getMyBusinessClient = () => axiosClient.get("/business-clients/me");
 export const getMyHrmsSsoToken = () => axiosClient.get("/business-clients/me/hrms-sso");
 
-export const listMyBusinessClients = (params) => axiosClient.get("/business-clients/mine", { params });
+export const listMyBusinessClients = (params = {}) => axiosClient.get("/business-clients/mine", { params });
 export const getBusinessClient = (id) => axiosClient.get(`/business-clients/mine/${id}`);
 export const getClientHrmsSsoToken = (id) => axiosClient.get(`/business-clients/mine/${id}/hrms-sso`);
 export const createBusinessClient = (payload) => axiosClient.post("/business-clients/mine", payload);
@@ -15,7 +15,7 @@ export const resetBusinessClientAdminPassword = (id, payload) =>
   axiosClient.put(`/business-clients/mine/${id}/reset-admin-password`, payload);
 
 // Payroll Management module
-export const listPayrollEligibleClients = () => axiosClient.get("/business-clients/mine/payroll-clients");
+export const listPayrollEligibleClients = (params = {}) => axiosClient.get("/business-clients/mine/payroll-clients", { params });
 export const provisionBusinessClientFromLead = (leadId) => axiosClient.post(`/business-clients/mine/from-lead/${leadId}`);
 export const upgradeToHrms = (id, payload) => axiosClient.put(`/business-clients/mine/${id}/upgrade-to-hrms`, payload);
 
@@ -24,12 +24,12 @@ export const listClientDirectory = () => axiosClient.get("/business-clients/mine
 
 // CA firm-admin/staff — basic employee details for one client (Non-HRMS),
 // powers the "View" action on Business Clients / Payroll Management cards.
-export const listClientEmployees = (id) => axiosClient.get(`/business-clients/mine/${id}/employees`);
+export const listClientEmployees = (id, params = {}) => axiosClient.get(`/business-clients/mine/${id}/employees`, { params });
 
 // Business Client Admin's own dashboard (/client-admin) — employee
 // onboarding link + the employee master it feeds.
 export const getMyEmployeeForm = () => axiosClient.get("/business-clients/me/employee-form");
-export const listMyEmployees = () => axiosClient.get("/business-clients/me/employees");
+export const listMyEmployees = (params = {}) => axiosClient.get("/business-clients/me/employees", { params });
 export const createMyEmployee = (payload) => axiosClient.post("/business-clients/me/employees", payload);
 export const updateMyEmployee = (employeeId, payload) =>
   axiosClient.put(`/business-clients/me/employees/${employeeId}`, payload);

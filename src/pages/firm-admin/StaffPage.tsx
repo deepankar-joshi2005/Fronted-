@@ -10,8 +10,13 @@ import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import Switch from "../../components/ui/Switch.jsx";
+import DateRangeFilter from "../../components/ui/DateRangeFilter.jsx";
+import useDebouncedValue from "../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../hooks/useResettablePage.js";
 import { sanitizePhone, validatePhone, validateEmail } from "../../utils/validators.js";
 import { STAFF_MODULES, DEFAULT_MODULE_PERMISSIONS } from "../../config/modulePermissions.js";
+
+const PAGE_SIZE = 15;
 
 function clonePermissions(source) {
   const base = source || DEFAULT_MODULE_PERMISSIONS;
@@ -396,9 +401,13 @@ function DeleteStaffModal({ staff, onClose, onDeleted }) {
 
 export default function StaffPage() {
   const [staff, setStaff] = useState([]);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [seats, setSeats] = useState({ used: 0, limit: null });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+  const [dateRange, setDateRange] = useState({ preset: "all", startDate: "", endDate: "" });
+  const [page, setPage] = useResettablePage(`${debouncedSearch}|${dateRange.startDate}|${dateRange.endDate}`);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -416,13 +425,16 @@ export default function StaffPage() {
     phone: (v) => validatePhone(v, false),
   };
 
-  async function load(searchTerm = search) {
+  async function load() {
     setLoading(true);
     try {
-      const params = {};
-      if (searchTerm) params.search = searchTerm;
+      const params: any = { page, limit: PAGE_SIZE };
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (dateRange.startDate) params.startDate = dateRange.startDate;
+      if (dateRange.endDate) params.endDate = dateRange.endDate;
       const { data } = await staffApi.listStaff(params);
       setStaff(data.data);
+      setMeta(data.meta || { total: data.data.length, totalPages: 1 });
       setSeats(data.seats);
     } finally {
       setLoading(false);
@@ -432,7 +444,7 @@ export default function StaffPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [page, debouncedSearch, dateRange.startDate, dateRange.endDate]);
 
   function update(field) {
     return (e) => {
@@ -542,7 +554,7 @@ export default function StaffPage() {
         </Button>
       </div>
 
-      <Card className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center">
+      <Card className="flex flex-col gap-3 p-4">
         <p className="text-sm text-text">
           <span className="font-semibold text-heading">{seats.used}</span> of{" "}
           <span className="font-semibold text-heading">{seats.limit ?? "unlimited"}</span> seats used
@@ -550,15 +562,17 @@ export default function StaffPage() {
             <span className="ml-2 text-danger">— upgrade your plan to add more staff</span>
           )}
         </p>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            load();
-          }}
-          className="max-w-sm"
-        >
-          <Input placeholder="Search staff..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </form>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-full max-w-sm">
+            <Input label="Search" placeholder="Search staff..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <DateRangeFilter
+            preset={dateRange.preset}
+            startDate={dateRange.startDate}
+            endDate={dateRange.endDate}
+            onChange={setDateRange}
+          />
+        </div>
       </Card>
 
       {loading ? (
@@ -568,8 +582,8 @@ export default function StaffPage() {
       ) : staff.length === 0 ? (
         <EmptyState
           icon={UsersIcon}
-          title="No staff yet"
-          description="Add your team members so they can work on CRM, Compliance, and Loan Calculator."
+          title="No staff found"
+          description="Try adjusting your search or date range, or add your first team member."
           action={
             <Button onClick={() => setModalOpen(true)} size="sm">
               <Plus size={15} /> Add staff
@@ -577,7 +591,12 @@ export default function StaffPage() {
           }
         />
       ) : (
-        <Table columns={columns} data={staff} keyField="id" />
+        <Table
+          columns={columns}
+          data={staff}
+          keyField="id"
+          pagination={{ page, totalPages: meta.totalPages, total: meta.total, limit: PAGE_SIZE, onChange: setPage }}
+        />
       )}
 
       <Modal

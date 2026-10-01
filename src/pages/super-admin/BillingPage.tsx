@@ -3,11 +3,18 @@ import { Wallet, TrendingUp, Building2 } from "lucide-react";
 import * as billingApi from "../../api/billing.api.js";
 import Card from "../../components/ui/Card.jsx";
 import Badge from "../../components/ui/Badge.jsx";
+import Input from "../../components/ui/Input.jsx";
+import Table from "../../components/ui/Table.jsx";
+import DateRangeFilter from "../../components/ui/DateRangeFilter.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import useDebouncedValue from "../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../hooks/useResettablePage.js";
 
 const TIER_LABELS = { starter: "Starter", growth: "Growth", enterprise: "Enterprise" };
 const STATUS_LABELS = { trial: "Trial", active: "Active", suspended: "Suspended", expired: "Expired" };
 const STATUS_BADGE = { trial: "brand", active: "success", suspended: "danger", expired: "neutral" };
+const PAGE_SIZE = 15;
 
 function formatCurrency(amount, currency) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
@@ -15,19 +22,39 @@ function formatCurrency(amount, currency) {
 
 export default function BillingPage() {
   const [data, setData] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+
   const [firms, setFirms] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [firmsLoading, setFirmsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+  const [dateRange, setDateRange] = useState({ preset: "all", startDate: "", endDate: "" });
+  const [page, setPage] = useResettablePage(`${debouncedSearch}|${dateRange.startDate}|${dateRange.endDate}`);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
 
   useEffect(() => {
-    Promise.all([billingApi.getBillingSummary(), billingApi.listFirmBilling()])
-      .then(([summaryRes, firmsRes]) => {
-        setData(summaryRes.data.data);
-        setFirms(firmsRes.data.data);
-      })
-      .finally(() => setLoading(false));
+    billingApi
+      .getBillingSummary()
+      .then(({ data }) => setData(data.data))
+      .finally(() => setSummaryLoading(false));
   }, []);
 
-  if (loading) {
+  useEffect(() => {
+    setFirmsLoading(true);
+    const params: any = { page, limit: PAGE_SIZE };
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (dateRange.startDate) params.startDate = dateRange.startDate;
+    if (dateRange.endDate) params.endDate = dateRange.endDate;
+    billingApi
+      .listFirmBilling(params)
+      .then(({ data }) => {
+        setFirms(data.data);
+        setMeta(data.meta || { total: data.data.length, totalPages: 1 });
+      })
+      .finally(() => setFirmsLoading(false));
+  }, [page, debouncedSearch, dateRange.startDate, dateRange.endDate]);
+
+  if (summaryLoading) {
     return (
       <div className="flex justify-center py-20">
         <Spinner size={28} />
@@ -98,43 +125,57 @@ export default function BillingPage() {
 
       <div>
         <h2 className="mb-3 text-lg font-semibold text-heading">Firm subscriptions</h2>
-        <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface-2">
-                <th className="px-4 py-3 font-semibold text-text-muted">Firm</th>
-                <th className="px-4 py-3 font-semibold text-text-muted">Plan</th>
-                <th className="px-4 py-3 font-semibold text-text-muted">Status</th>
-                <th className="px-4 py-3 font-semibold text-text-muted">Billing</th>
-                <th className="px-4 py-3 font-semibold text-text-muted">Expires</th>
-                <th className="px-4 py-3 font-semibold text-text-muted">Last payment</th>
-              </tr>
-            </thead>
-            <tbody>
-              {firms.map((firm) => (
-                <tr key={firm._id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium text-text">{firm.name}</td>
-                  <td className="px-4 py-3 text-text">{TIER_LABELS[firm.plan.tier]}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={STATUS_BADGE[firm.plan.status] || "neutral"}>{STATUS_LABELS[firm.plan.status]}</Badge>
-                  </td>
-                  <td className="px-4 py-3 text-text capitalize">{firm.plan.billingCycle}</td>
-                  <td className="px-4 py-3 text-text">
-                    {firm.plan.expiryDate ? new Date(firm.plan.expiryDate).toLocaleDateString() : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-text">
-                    {firm.lastPayment
-                      ? `${firm.lastPayment.currency} ${firm.lastPayment.amount.toLocaleString("en-IN")} on ${new Date(
-                          firm.lastPayment.createdAt
-                        ).toLocaleDateString()}`
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {firms.length === 0 && <p className="px-4 py-8 text-center text-sm text-text-muted">No firms yet.</p>}
-        </div>
+
+        <Card className="mb-4 flex flex-wrap items-end gap-3 p-4">
+          <div className="w-full max-w-sm">
+            <Input label="Search" placeholder="Search by firm name..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <DateRangeFilter
+            preset={dateRange.preset}
+            startDate={dateRange.startDate}
+            endDate={dateRange.endDate}
+            onChange={setDateRange}
+          />
+        </Card>
+
+        {firmsLoading ? (
+          <div className="flex justify-center py-16">
+            <Spinner size={28} />
+          </div>
+        ) : firms.length === 0 ? (
+          <EmptyState icon={Building2} title="No firms found" description="Try adjusting your search or date range." />
+        ) : (
+          <Table
+            columns={[
+              { key: "name", label: "Firm" },
+              { key: "tier", label: "Plan", render: (firm) => TIER_LABELS[firm.plan.tier] },
+              {
+                key: "status",
+                label: "Status",
+                render: (firm) => <Badge variant={STATUS_BADGE[firm.plan.status] || "neutral"}>{STATUS_LABELS[firm.plan.status]}</Badge>,
+              },
+              { key: "billingCycle", label: "Billing", render: (firm) => <span className="capitalize">{firm.plan.billingCycle}</span> },
+              {
+                key: "expiryDate",
+                label: "Expires",
+                render: (firm) => (firm.plan.expiryDate ? new Date(firm.plan.expiryDate).toLocaleDateString() : "—"),
+              },
+              {
+                key: "lastPayment",
+                label: "Last payment",
+                render: (firm) =>
+                  firm.lastPayment
+                    ? `${firm.lastPayment.currency} ${firm.lastPayment.amount.toLocaleString("en-IN")} on ${new Date(
+                        firm.lastPayment.createdAt
+                      ).toLocaleDateString()}`
+                    : "—",
+              },
+            ]}
+            data={firms}
+            keyField="_id"
+            pagination={{ page, totalPages: meta.totalPages, total: meta.total, limit: PAGE_SIZE, onChange: setPage }}
+          />
+        )}
       </div>
     </div>
   );

@@ -15,13 +15,19 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import * as reportsApi from "../../api/reports.api.js";
 import Card from "../../components/ui/Card.jsx";
 import Badge from "../../components/ui/Badge.jsx";
+import Input from "../../components/ui/Input.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import Table from "../../components/ui/Table.jsx";
+import Pagination from "../../components/ui/Pagination.jsx";
 import DonutChart from "../../components/ui/DonutChart.jsx";
 import ChartTooltip from "../../components/ui/ChartTooltip.jsx";
 import SegmentedTabs from "../../components/ui/SegmentedTabs.jsx";
+import useDebouncedValue from "../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../hooks/useResettablePage.js";
 import { CHART_COLORS } from "../../utils/chartColors.js";
+
+const PAGE_SIZE = 15;
 
 const PLAN_BADGE = { trial: "brand", active: "success", suspended: "danger", expired: "neutral" };
 const SUB_STATUS_BADGE = { PAID: "success", PENDING: "warning", OVERDUE: "danger" };
@@ -35,6 +41,7 @@ const PERIOD_OPTIONS = [
   { value: "weekly", label: "This Week" },
   { value: "monthly", label: "This Month" },
   { value: "yearly", label: "This Year" },
+  { value: "custom", label: "Custom" },
 ];
 
 function fmtDate(d) {
@@ -65,13 +72,30 @@ function HeroStat({ icon: Icon, label, value, sub, accentBg, accentText }) {
 export default function ReportsPage() {
   const [tab, setTab] = useState("overview");
   const [period, setPeriod] = useState("");
+  const [customRange, setCustomRange] = useState({ startDate: "", endDate: "" });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [overview, setOverview] = useState(null);
+
   const [caFirms, setCaFirms] = useState([]);
+  const [caFirmsMeta, setCaFirmsMeta] = useState({ total: 0, totalPages: 1 });
+  const [caFirmsSearch, setCaFirmsSearch] = useState("");
+  const debouncedCaFirmsSearch = useDebouncedValue(caFirmsSearch);
+
   const [businessClients, setBusinessClients] = useState([]);
+  const [businessClientsMeta, setBusinessClientsMeta] = useState({ total: 0, totalPages: 1 });
+  const [businessClientsSearch, setBusinessClientsSearch] = useState("");
+  const debouncedBusinessClientsSearch = useDebouncedValue(businessClientsSearch);
+
   const [subscriptions, setSubscriptions] = useState(null);
+  const [subscriptionsMeta, setSubscriptionsMeta] = useState(null);
   const [expandedFirms, setExpandedFirms] = useState(new Set());
+
+  const periodKey = period === "custom" ? `custom|${customRange.startDate}|${customRange.endDate}` : period;
+  const [caFirmsPage, setCaFirmsPage] = useResettablePage(`${periodKey}|${debouncedCaFirmsSearch}`);
+  const [businessClientsPage, setBusinessClientsPage] = useResettablePage(`${periodKey}|${debouncedBusinessClientsSearch}`);
+  const [firmSubPage, setFirmSubPage] = useState(1);
+  const [clientSubPage, setClientSubPage] = useState(1);
 
   function toggleFirm(id) {
     setExpandedFirms((prev) => {
@@ -82,31 +106,66 @@ export default function ReportsPage() {
     });
   }
 
+  function periodParams() {
+    if (!period) return {};
+    if (period === "custom") {
+      if (!customRange.startDate && !customRange.endDate) return {};
+      return { period: "custom", startDate: customRange.startDate, endDate: customRange.endDate };
+    }
+    return { period };
+  }
+
   // Overview / CA Firms / Business Clients are scoped to the selected sign-up
   // period; Subscriptions is about upcoming expiry, not sign-up date, so it's
-  // fetched once and left alone.
+  // fetched once (then re-paginated locally) and left alone.
   useEffect(() => {
-    const params = period ? { period } : undefined;
     const isFirstLoad = subscriptions === null;
     if (isFirstLoad) setLoading(true);
     else setRefreshing(true);
 
-    const requests = [reportsApi.getReportsOverview(params), reportsApi.getCaFirmsReport(params), reportsApi.getBusinessClientsReport(params)];
-    if (isFirstLoad) requests.push(reportsApi.getSubscriptionsReport());
+    const requests = [
+      reportsApi.getReportsOverview(periodParams()),
+      reportsApi.getCaFirmsReport({ ...periodParams(), page: caFirmsPage, limit: PAGE_SIZE, search: debouncedCaFirmsSearch || undefined }),
+      reportsApi.getBusinessClientsReport({
+        ...periodParams(),
+        page: businessClientsPage,
+        limit: PAGE_SIZE,
+        search: debouncedBusinessClientsSearch || undefined,
+      }),
+    ];
+    if (isFirstLoad) requests.push(reportsApi.getSubscriptionsReport({ firmPage: 1, firmLimit: PAGE_SIZE, clientPage: 1, clientLimit: PAGE_SIZE }));
 
     Promise.all(requests)
       .then(([ov, firms, clients, subs]) => {
         setOverview(ov.data.data);
         setCaFirms(firms.data.data);
+        setCaFirmsMeta(firms.data.meta || { total: firms.data.data.length, totalPages: 1 });
         setBusinessClients(clients.data.data);
-        if (subs) setSubscriptions(subs.data.data);
+        setBusinessClientsMeta(clients.data.meta || { total: clients.data.data.length, totalPages: 1 });
+        if (subs) {
+          setSubscriptions(subs.data.data);
+          setSubscriptionsMeta(subs.data.meta);
+        }
       })
       .finally(() => {
         setLoading(false);
         setRefreshing(false);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period]);
+  }, [periodKey, caFirmsPage, businessClientsPage, debouncedCaFirmsSearch, debouncedBusinessClientsSearch]);
+
+  // Subscriptions tables paginate independently, off the already-fetched
+  // (full) lists — re-request just those two pages rather than everything else.
+  useEffect(() => {
+    if (subscriptions === null) return;
+    reportsApi
+      .getSubscriptionsReport({ firmPage: firmSubPage, firmLimit: PAGE_SIZE, clientPage: clientSubPage, clientLimit: PAGE_SIZE })
+      .then(({ data }) => {
+        setSubscriptions(data.data);
+        setSubscriptionsMeta(data.meta);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firmSubPage, clientSubPage]);
 
   if (loading) {
     return (
@@ -246,10 +305,34 @@ export default function ReportsPage() {
       </div>
 
       {tab !== "subscriptions" && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-text-muted">Sign-ups in:</span>
-          <SegmentedTabs value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
-          {refreshing && <Spinner size={16} />}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-text-muted">Sign-ups in:</span>
+            <SegmentedTabs value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
+            {refreshing && <Spinner size={16} />}
+          </div>
+          {period === "custom" && (
+            <div className="flex items-end gap-3">
+              <div className="w-40">
+                <Input
+                  label="From"
+                  type="date"
+                  value={customRange.startDate}
+                  max={customRange.endDate || undefined}
+                  onChange={(e) => setCustomRange((r) => ({ ...r, startDate: e.target.value }))}
+                />
+              </div>
+              <div className="w-40">
+                <Input
+                  label="To"
+                  type="date"
+                  value={customRange.endDate}
+                  min={customRange.startDate || undefined}
+                  onChange={(e) => setCustomRange((r) => ({ ...r, endDate: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -362,12 +445,15 @@ export default function ReportsPage() {
       {tab === "ca-firms" && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-text-muted">
-            {caFirms.length} CA firm{caFirms.length === 1 ? "" : "s"}
+            {caFirmsMeta.total} CA firm{caFirmsMeta.total === 1 ? "" : "s"}
             {period ? ` signed up ${PERIOD_OPTIONS.find((p) => p.value === period)?.label.toLowerCase()}` : ""} — expand a firm to see every
             business client under it, its HRMS plan, and its real employee headcount.
           </p>
+          <Card className="max-w-sm p-4">
+            <Input label="Search" placeholder="Search CA firms by name..." value={caFirmsSearch} onChange={(e) => setCaFirmsSearch(e.target.value)} />
+          </Card>
           {caFirms.length === 0 ? (
-            <EmptyState icon={Building2} title={period ? "No CA firms signed up in this period" : "No CA firms yet"} />
+            <EmptyState icon={Building2} title="No CA firms found" description="Try adjusting your search or date range." />
           ) : (
             <div className="flex flex-col gap-3">
               {caFirms.map((firm) => {
@@ -460,6 +546,15 @@ export default function ReportsPage() {
                   </Card>
                 );
               })}
+              <Card className="p-0">
+                <Pagination
+                  page={caFirmsPage}
+                  totalPages={caFirmsMeta.totalPages}
+                  total={caFirmsMeta.total}
+                  limit={PAGE_SIZE}
+                  onChange={setCaFirmsPage}
+                />
+              </Card>
             </div>
           )}
         </div>
@@ -468,14 +563,33 @@ export default function ReportsPage() {
       {tab === "business-clients" && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-text-muted">
-            {businessClients.length} business client{businessClients.length === 1 ? "" : "s"}
+            {businessClientsMeta.total} business client{businessClientsMeta.total === 1 ? "" : "s"}
             {period ? ` signed up ${PERIOD_OPTIONS.find((p) => p.value === period)?.label.toLowerCase()}` : " across every CA firm"}, with real
             employee headcount.
           </p>
+          <Card className="max-w-sm p-4">
+            <Input
+              label="Search"
+              placeholder="Search business clients by name..."
+              value={businessClientsSearch}
+              onChange={(e) => setBusinessClientsSearch(e.target.value)}
+            />
+          </Card>
           {businessClients.length === 0 ? (
-            <EmptyState icon={Briefcase} title={period ? "No business clients signed up in this period" : "No business clients yet"} />
+            <EmptyState icon={Briefcase} title="No business clients found" description="Try adjusting your search or date range." />
           ) : (
-            <Table columns={businessClientColumns} data={businessClients} keyField="_id" />
+            <Table
+              columns={businessClientColumns}
+              data={businessClients}
+              keyField="_id"
+              pagination={{
+                page: businessClientsPage,
+                totalPages: businessClientsMeta.totalPages,
+                total: businessClientsMeta.total,
+                limit: PAGE_SIZE,
+                onChange: setBusinessClientsPage,
+              }}
+            />
           )}
         </div>
       )}
@@ -512,7 +626,20 @@ export default function ReportsPage() {
             {subscriptions.caFirmSubscriptions.length === 0 ? (
               <EmptyState icon={Building2} title="No CA firms yet" />
             ) : (
-              <Table columns={caFirmSubColumns} data={subscriptions.caFirmSubscriptions} keyField="_id" />
+              <Table
+                columns={caFirmSubColumns}
+                data={subscriptions.caFirmSubscriptions}
+                keyField="_id"
+                pagination={
+                  subscriptionsMeta && {
+                    page: firmSubPage,
+                    totalPages: subscriptionsMeta.caFirmSubscriptions.totalPages,
+                    total: subscriptionsMeta.caFirmSubscriptions.total,
+                    limit: PAGE_SIZE,
+                    onChange: setFirmSubPage,
+                  }
+                }
+              />
             )}
           </div>
 
@@ -521,7 +648,20 @@ export default function ReportsPage() {
             {subscriptions.businessClientSubscriptions.length === 0 ? (
               <EmptyState icon={Briefcase} title="No HRMS subscriptions yet" />
             ) : (
-              <Table columns={clientSubColumns} data={subscriptions.businessClientSubscriptions} keyField="_id" />
+              <Table
+                columns={clientSubColumns}
+                data={subscriptions.businessClientSubscriptions}
+                keyField="_id"
+                pagination={
+                  subscriptionsMeta && {
+                    page: clientSubPage,
+                    totalPages: subscriptionsMeta.businessClientSubscriptions.totalPages,
+                    total: subscriptionsMeta.businessClientSubscriptions.total,
+                    limit: PAGE_SIZE,
+                    onChange: setClientSubPage,
+                  }
+                }
+              />
             )}
           </div>
         </div>

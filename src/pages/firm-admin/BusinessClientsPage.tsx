@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Briefcase, Copy, Check, KeyRound, Ban, Power, Eye, Pencil, Trash2, Wallet, ArrowUpCircle } from "lucide-react";
 import * as businessClientApi from "../../api/businessClient.api.js";
@@ -15,8 +15,13 @@ import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import SegmentedTabs from "../../components/ui/SegmentedTabs.jsx";
+import DateRangeFilter from "../../components/ui/DateRangeFilter.jsx";
 import ViewClientModal from "../../components/business-clients/ViewClientModal.jsx";
+import useDebouncedValue from "../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../hooks/useResettablePage.js";
 import { sanitizePan, sanitizeGstin, sanitizePhone, sanitizePincode, validatePan, validateGstin, validatePhone, validatePincode, validateEmail } from "../../utils/validators.js";
+
+const PAGE_SIZE = 15;
 
 const CLIENT_TYPE_LABELS = {
   individual: "Individual",
@@ -747,9 +752,12 @@ function UpgradeToHrmsModal({ client, onClose, onDone }) {
 export default function BusinessClientsPage() {
   const { basePath } = useAuth();
   const [clients, setClients] = useState([]);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [limit, setLimit] = useState({ used: 0, max: null });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+  const [dateRange, setDateRange] = useState({ preset: "all", startDate: "", endDate: "" });
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
   const [createdResult, setCreatedResult] = useState(null);
@@ -760,19 +768,18 @@ export default function BusinessClientsPage() {
   const [upgradeTarget, setUpgradeTarget] = useState(null);
   const [upgradeResult, setUpgradeResult] = useState(null);
   const [tab, setTab] = useState("hrms");
+  const [page, setPage] = useResettablePage(`${tab}|${debouncedSearch}|${dateRange.startDate}|${dateRange.endDate}`);
 
-  const filteredClients = useMemo(
-    () => clients.filter((c) => (tab === "hrms" ? c.useHrms !== false : c.useHrms === false)),
-    [clients, tab]
-  );
-
-  async function load(searchTerm = search) {
+  async function load() {
     setLoading(true);
     try {
-      const params = {};
-      if (searchTerm) params.search = searchTerm;
+      const params: any = { page, limit: PAGE_SIZE, tab };
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (dateRange.startDate) params.startDate = dateRange.startDate;
+      if (dateRange.endDate) params.endDate = dateRange.endDate;
       const { data } = await businessClientApi.listMyBusinessClients(params);
       setClients(data.data);
+      setMeta(data.meta || { total: data.data.length, totalPages: 1 });
       setLimit(data.limit);
     } finally {
       setLoading(false);
@@ -782,7 +789,7 @@ export default function BusinessClientsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [page, tab, debouncedSearch, dateRange.startDate, dateRange.endDate]);
 
   function openCreate() {
     setEditingClient(null);
@@ -930,21 +937,28 @@ export default function BusinessClientsPage() {
         </Button>
       </div>
 
-      <Card className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center">
+      <Card className="flex flex-col gap-3 p-4">
         <p className="text-sm text-text">
           <span className="font-semibold text-heading">{limit.used}</span> of{" "}
           <span className="font-semibold text-heading">{limit.max ?? "unlimited"}</span> business clients used
           {limitReached && <span className="ml-2 text-danger">— upgrade your plan to add more</span>}
         </p>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            load();
-          }}
-          className="max-w-sm"
-        >
-          <Input placeholder="Search business clients..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </form>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-full max-w-sm">
+            <Input
+              label="Search"
+              placeholder="Search business clients..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <DateRangeFilter
+            preset={dateRange.preset}
+            startDate={dateRange.startDate}
+            endDate={dateRange.endDate}
+            onChange={setDateRange}
+          />
+        </div>
       </Card>
 
       <SegmentedTabs
@@ -960,15 +974,11 @@ export default function BusinessClientsPage() {
         <div className="flex justify-center py-16">
           <Spinner size={28} />
         </div>
-      ) : filteredClients.length === 0 ? (
+      ) : clients.length === 0 ? (
         <EmptyState
           icon={Briefcase}
-          title={clients.length === 0 ? "No business clients yet" : `No ${tab === "hrms" ? "HRMS" : "Non-HRMS"} clients`}
-          description={
-            clients.length === 0
-              ? "Onboard your first business client to give them their own login."
-              : "Switch tabs, or add a new business client."
-          }
+          title={`No ${tab === "hrms" ? "HRMS" : "Non-HRMS"} clients found`}
+          description="Try adjusting your search or date range, switch tabs, or add a new business client."
           action={
             <Button onClick={openCreate} size="sm">
               <Plus size={15} /> Add business client
@@ -976,7 +986,12 @@ export default function BusinessClientsPage() {
           }
         />
       ) : (
-        <Table columns={columns} data={filteredClients} keyField="_id" />
+        <Table
+          columns={columns}
+          data={clients}
+          keyField="_id"
+          pagination={{ page, totalPages: meta.totalPages, total: meta.total, limit: PAGE_SIZE, onChange: setPage }}
+        />
       )}
 
       <ClientFormModal

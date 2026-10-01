@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Wallet, Briefcase, UserPlus, ExternalLink, Eye } from "lucide-react";
 import * as businessClientApi from "../../../api/businessClient.api.js";
@@ -11,7 +11,12 @@ import Button from "../../../components/ui/Button.jsx";
 import Spinner from "../../../components/ui/Spinner.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import SegmentedTabs from "../../../components/ui/SegmentedTabs.jsx";
+import Pagination from "../../../components/ui/Pagination.jsx";
 import ViewClientModal from "../../../components/business-clients/ViewClientModal.jsx";
+import useDebouncedValue from "../../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../../hooks/useResettablePage.js";
+
+const PAGE_SIZE = 15;
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   individual: "Individual",
@@ -32,18 +37,24 @@ export default function PayrollManagementPage() {
   const { basePath } = useAuth();
   const navigate = useNavigate();
   const [rows, setRows] = useState<any[]>([]);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("hrms");
+  const [page, setPage] = useResettablePage(`${tab}|${debouncedSearch}`);
   const [viewTarget, setViewTarget] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
     try {
-      const { data } = await businessClientApi.listPayrollEligibleClients();
+      const params: any = { page, limit: PAGE_SIZE, tab };
+      if (debouncedSearch) params.search = debouncedSearch;
+      const { data } = await businessClientApi.listPayrollEligibleClients(params);
       setRows(data.data || []);
+      setMeta(data.meta || { total: (data.data || []).length, totalPages: 1 });
     } finally {
       setLoading(false);
     }
@@ -51,17 +62,8 @@ export default function PayrollManagementPage() {
 
   useEffect(() => {
     load();
-  }, []);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return rows
-      .filter((r) => (tab === "hrms" ? r.useHrms : !r.useHrms))
-      .filter((r) => {
-        if (!q) return true;
-        return [r.name, r.gstin, r.pan, r.contactPerson, r.phone].filter(Boolean).some((v) => String(v).toLowerCase().includes(q));
-      });
-  }, [rows, search, tab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, tab, debouncedSearch]);
 
   async function handleOpenPayroll(row: any) {
     setError("");
@@ -84,14 +86,6 @@ export default function PayrollManagementPage() {
     } finally {
       setBusyId(null);
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <Spinner size={28} />
-      </div>
-    );
   }
 
   return (
@@ -126,19 +120,20 @@ export default function PayrollManagementPage() {
         onChange={setTab}
       />
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Spinner size={28} />
+        </div>
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={Briefcase}
-          title={rows.length === 0 ? "No clients yet" : "No matches"}
-          description={
-            rows.length === 0
-              ? "Business Clients and converted CRM leads will show up here once you have some."
-              : "Try a different search term, or switch tabs."
-          }
+          title="No clients found"
+          description="Business Clients and converted CRM leads will show up here once you have some — or try a different search term."
         />
       ) : (
+        <div className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((row) => (
+          {rows.map((row) => (
             <Card key={`${row.kind}-${row._id}`} className="flex flex-col gap-3 p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -179,6 +174,10 @@ export default function PayrollManagementPage() {
               </div>
             </Card>
           ))}
+        </div>
+        <Card className="p-0">
+          <Pagination page={page} totalPages={meta.totalPages} total={meta.total} limit={PAGE_SIZE} onChange={setPage} />
+        </Card>
         </div>
       )}
 

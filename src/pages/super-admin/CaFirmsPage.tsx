@@ -10,7 +10,13 @@ import Badge from "../../components/ui/Badge.jsx";
 import Modal from "../../components/ui/Modal.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import Pagination from "../../components/ui/Pagination.jsx";
+import DateRangeFilter from "../../components/ui/DateRangeFilter.jsx";
+import useDebouncedValue from "../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../hooks/useResettablePage.js";
 import { sanitizePan, sanitizeGstin, sanitizePhone, validatePan, validateGstin, validatePhone, validateEmail } from "../../utils/validators.js";
+
+const PAGE_SIZE = 15;
 
 const INITIAL_FORM = {
   name: "",
@@ -433,7 +439,11 @@ export default function CaFirmsPage() {
   const [firms, setFirms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [tab, setTab] = useState("all");
+  const [dateRange, setDateRange] = useState({ preset: "all", startDate: "", endDate: "" });
+  const [page, setPage] = useResettablePage(`${tab}|${debouncedSearch}|${dateRange.startDate}|${dateRange.endDate}`);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -446,23 +456,26 @@ export default function CaFirmsPage() {
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  async function loadFirms(searchTerm = search, tabValue = tab) {
+  async function loadFirms() {
     setLoading(true);
     try {
-      const params = {};
-      if (searchTerm) params.search = searchTerm;
-      if (tabValue !== "all") params.tab = tabValue;
+      const params: any = { page, limit: PAGE_SIZE };
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (tab !== "all") params.tab = tab;
+      if (dateRange.startDate) params.startDate = dateRange.startDate;
+      if (dateRange.endDate) params.endDate = dateRange.endDate;
       const { data } = await caFirmApi.listCaFirms(params);
       setFirms(data.data);
+      setMeta(data.meta || { total: data.data.length, totalPages: 1 });
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadFirms(search, tab);
+    loadFirms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, page, debouncedSearch, dateRange.startDate, dateRange.endDate]);
 
   function update(field) {
     return (e) => {
@@ -627,16 +640,21 @@ export default function CaFirmsPage() {
         ))}
       </div>
 
-      <Card className="p-4">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            loadFirms();
-          }}
-          className="max-w-sm"
-        >
-          <Input placeholder="Search CA firms..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </form>
+      <Card className="flex flex-wrap items-end gap-3 p-4">
+        <div className="w-full max-w-sm">
+          <Input
+            label="Search"
+            placeholder="Search CA firms by name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <DateRangeFilter
+          preset={dateRange.preset}
+          startDate={dateRange.startDate}
+          endDate={dateRange.endDate}
+          onChange={setDateRange}
+        />
       </Card>
 
       {loading ? (
@@ -655,7 +673,12 @@ export default function CaFirmsPage() {
           }
         />
       ) : (
-        <Table columns={columns} data={firms} keyField="_id" />
+        <Table
+          columns={columns}
+          data={firms}
+          keyField="_id"
+          pagination={{ page, totalPages: meta.totalPages, total: meta.total, limit: PAGE_SIZE, onChange: setPage }}
+        />
       )}
 
       <Modal

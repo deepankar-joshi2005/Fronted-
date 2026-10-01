@@ -7,6 +7,9 @@ import Table from "../../components/ui/Table.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import useResettablePage from "../../hooks/useResettablePage.js";
+
+const PAGE_SIZE = 15;
 
 function currentMonth() {
   const d = new Date();
@@ -25,6 +28,7 @@ export default function SalaryStructurePage() {
   const [rows, setRows] = useState<any[]>([]);
   const [run, setRun] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useResettablePage(month);
 
   useEffect(() => {
     setLoading(true);
@@ -39,6 +43,8 @@ export default function SalaryStructurePage() {
 
   const totalNet = rows.reduce((sum, r) => sum + (r.net || 0), 0);
   const netAvailable = run && run.status !== "Draft";
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const columns = [
     {
@@ -109,7 +115,12 @@ export default function SalaryStructurePage() {
         ) : rows.length === 0 ? (
           <EmptyState icon={Users} title={`No salary structure for ${monthLabel(month)} yet`} description="Your CA will upload this once the month's Excel is processed." />
         ) : (
-          <Table columns={columns} data={rows} keyField="_id" />
+          <Table
+            columns={columns}
+            data={pageRows}
+            keyField="_id"
+            pagination={{ page, totalPages, total: rows.length, limit: PAGE_SIZE, onChange: setPage }}
+          />
         )}
       </Card>
     </div>

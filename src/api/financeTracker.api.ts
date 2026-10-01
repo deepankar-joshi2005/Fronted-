@@ -2,7 +2,7 @@ import axiosClient from "./axiosClient.js";
 
 const base = "/finance-tracker/profiles";
 
-export const listFinanceProfiles = () => axiosClient.get(base);
+export const listFinanceProfiles = (params?: { page?: number; limit?: number; search?: string }) => axiosClient.get(base, { params });
 export const getFinanceProfile = (id: string, params?: { annualRate?: number; tenureMonths?: number }) =>
   axiosClient.get(`${base}/${id}`, { params });
 export const createFinanceProfile = (payload: any) => axiosClient.post(base, payload);

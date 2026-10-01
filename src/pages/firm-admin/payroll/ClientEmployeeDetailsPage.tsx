@@ -5,10 +5,16 @@ import * as businessClientApi from "../../../api/businessClient.api.js";
 import { useAuth } from "../../../hooks/useAuth";
 import ClientIdentityCard from "../../../components/payroll/ClientIdentityCard.jsx";
 import Card from "../../../components/ui/Card.jsx";
+import Input from "../../../components/ui/Input.jsx";
 import Table from "../../../components/ui/Table.jsx";
 import Badge from "../../../components/ui/Badge.jsx";
 import Spinner from "../../../components/ui/Spinner.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
+import DateRangeFilter from "../../../components/ui/DateRangeFilter.jsx";
+import useDebouncedValue from "../../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../../hooks/useResettablePage.js";
+
+const PAGE_SIZE = 15;
 
 const SOURCE_LABELS: Record<string, { label: string; variant: string }> = {
   self_registered: { label: "Self-registered", variant: "brand" },
@@ -22,18 +28,38 @@ export default function ClientEmployeeDetailsPage() {
 
   const [client, setClient] = useState<any>(null);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+  const [dateRange, setDateRange] = useState({ preset: "all", startDate: "", endDate: "" });
+  const [page, setPage] = useResettablePage(`${debouncedSearch}|${dateRange.startDate}|${dateRange.endDate}`);
 
   useEffect(() => {
     if (!clientId) return;
     setLoading(true);
-    Promise.all([businessClientApi.getBusinessClient(clientId), businessClientApi.listClientEmployees(clientId)])
-      .then(([clientRes, employeesRes]) => {
-        setClient(clientRes.data.data);
-        setEmployees(employeesRes.data.data || []);
-      })
+    businessClientApi
+      .getBusinessClient(clientId)
+      .then(({ data }) => setClient(data.data))
       .finally(() => setLoading(false));
   }, [clientId]);
+
+  useEffect(() => {
+    if (!clientId) return;
+    setEmployeesLoading(true);
+    const params: any = { page, limit: PAGE_SIZE };
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (dateRange.startDate) params.startDate = dateRange.startDate;
+    if (dateRange.endDate) params.endDate = dateRange.endDate;
+    businessClientApi
+      .listClientEmployees(clientId, params)
+      .then(({ data }) => {
+        setEmployees(data.data || []);
+        setMeta(data.meta || { total: (data.data || []).length, totalPages: 1 });
+      })
+      .finally(() => setEmployeesLoading(false));
+  }, [clientId, page, debouncedSearch, dateRange.startDate, dateRange.endDate]);
 
   const columns = [
     {
@@ -135,15 +161,37 @@ export default function ClientEmployeeDetailsPage() {
       <ClientIdentityCard client={client} />
 
       <Card className="p-4 sm:p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Users size={16} className="text-text-muted" />
-          <h2 className="text-lg font-semibold text-heading">Employees</h2>
-          <Badge variant="neutral">{employees.length}</Badge>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-text-muted" />
+            <h2 className="text-lg font-semibold text-heading">Employees</h2>
+            <Badge variant="neutral">{meta.total}</Badge>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-full max-w-xs">
+              <Input placeholder="Search employees..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <DateRangeFilter
+              preset={dateRange.preset}
+              startDate={dateRange.startDate}
+              endDate={dateRange.endDate}
+              onChange={setDateRange}
+            />
+          </div>
         </div>
-        {employees.length === 0 ? (
-          <EmptyState icon={Users} title="No employees yet" description="Employees show up here once added via Excel upload or by the client." />
+        {employeesLoading ? (
+          <div className="flex justify-center py-10">
+            <Spinner size={24} />
+          </div>
+        ) : employees.length === 0 ? (
+          <EmptyState icon={Users} title="No employees found" description="Try adjusting your search or date range." />
         ) : (
-          <Table columns={columns} data={employees} keyField="_id" />
+          <Table
+            columns={columns}
+            data={employees}
+            keyField="_id"
+            pagination={{ page, totalPages: meta.totalPages, total: meta.total, limit: PAGE_SIZE, onChange: setPage }}
+          />
         )}
       </Card>
     </div>

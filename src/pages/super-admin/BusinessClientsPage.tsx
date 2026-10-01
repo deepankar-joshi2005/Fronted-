@@ -3,24 +3,52 @@ import { Briefcase, CheckCircle2, XCircle } from "lucide-react";
 import * as businessClientApi from "../../api/businessClient.api.js";
 import Card from "../../components/ui/Card.jsx";
 import Badge from "../../components/ui/Badge.jsx";
+import Input from "../../components/ui/Input.jsx";
+import Table from "../../components/ui/Table.jsx";
+import DateRangeFilter from "../../components/ui/DateRangeFilter.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import useDebouncedValue from "../../hooks/useDebouncedValue.js";
+import useResettablePage from "../../hooks/useResettablePage.js";
 
 const SUB_STATUS_BADGE = { PAID: "success", PENDING: "warning", OVERDUE: "danger" };
+const PAGE_SIZE = 15;
 
 export default function BusinessClientsPage() {
   const [data, setData] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+
   const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [clientsLoading, setClientsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+  const [dateRange, setDateRange] = useState({ preset: "all", startDate: "", endDate: "" });
+  const [page, setPage] = useResettablePage(`${debouncedSearch}|${dateRange.startDate}|${dateRange.endDate}`);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
 
   useEffect(() => {
-    Promise.all([businessClientApi.getBusinessClientSummary(), businessClientApi.listAllBusinessClients()])
-      .then(([summaryRes, clientsRes]) => {
-        setData(summaryRes.data.data);
-        setClients(clientsRes.data.data);
-      })
-      .finally(() => setLoading(false));
+    businessClientApi
+      .getBusinessClientSummary()
+      .then(({ data }) => setData(data.data))
+      .finally(() => setSummaryLoading(false));
   }, []);
+
+  useEffect(() => {
+    setClientsLoading(true);
+    const params: any = { page, limit: PAGE_SIZE };
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (dateRange.startDate) params.startDate = dateRange.startDate;
+    if (dateRange.endDate) params.endDate = dateRange.endDate;
+    businessClientApi
+      .listAllBusinessClients(params)
+      .then(({ data }) => {
+        setClients(data.data);
+        setMeta(data.meta || { total: data.data.length, totalPages: 1 });
+      })
+      .finally(() => setClientsLoading(false));
+  }, [page, debouncedSearch, dateRange.startDate, dateRange.endDate]);
+
+  const loading = summaryLoading;
 
   if (loading) {
     return (
@@ -86,43 +114,63 @@ export default function BusinessClientsPage() {
 
       <div>
         <h2 className="mb-3 text-lg font-semibold text-heading">All business clients</h2>
-        <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface-2">
-                <th className="px-4 py-3 font-semibold text-text-muted">Business Client</th>
-                <th className="px-4 py-3 font-semibold text-text-muted">CA Firm</th>
-                <th className="px-4 py-3 font-semibold text-text-muted">HRMS Plan</th>
-                <th className="px-4 py-3 font-semibold text-text-muted">Status</th>
-                <th className="px-4 py-3 font-semibold text-text-muted">Expires</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clients.map((c) => (
-                <tr key={c._id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium text-text">{c.name}</td>
-                  <td className="px-4 py-3 text-text">{c.caFirmName}</td>
-                  <td className="px-4 py-3 text-text">
-                    {c.useHrms === false ? <span className="text-text-muted">Excel-based</span> : c.planTier || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    {c.useHrms === false ? (
-                      <Badge variant={c.isActive ? "success" : "danger"}>{c.isActive ? "Active" : "Suspended"}</Badge>
-                    ) : c.subscriptionStatus ? (
-                      <Badge variant={SUB_STATUS_BADGE[c.subscriptionStatus] || "neutral"}>{c.subscriptionStatus}</Badge>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-text">
-                    {c.subscriptionEndDate ? new Date(c.subscriptionEndDate).toLocaleDateString() : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {clients.length === 0 && <p className="px-4 py-8 text-center text-sm text-text-muted">No business clients yet.</p>}
-        </div>
+
+        <Card className="mb-4 flex flex-wrap items-end gap-3 p-4">
+          <div className="w-full max-w-sm">
+            <Input
+              label="Search"
+              placeholder="Search business clients by name..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <DateRangeFilter
+            preset={dateRange.preset}
+            startDate={dateRange.startDate}
+            endDate={dateRange.endDate}
+            onChange={setDateRange}
+          />
+        </Card>
+
+        {clientsLoading ? (
+          <div className="flex justify-center py-16">
+            <Spinner size={28} />
+          </div>
+        ) : clients.length === 0 ? (
+          <EmptyState icon={Briefcase} title="No business clients found" description="Try adjusting your search or date range." />
+        ) : (
+          <Table
+            columns={[
+              { key: "name", label: "Business Client" },
+              { key: "caFirmName", label: "CA Firm" },
+              {
+                key: "planTier",
+                label: "HRMS Plan",
+                render: (c) => (c.useHrms === false ? <span className="text-text-muted">Excel-based</span> : c.planTier || "—"),
+              },
+              {
+                key: "status",
+                label: "Status",
+                render: (c) =>
+                  c.useHrms === false ? (
+                    <Badge variant={c.isActive ? "success" : "danger"}>{c.isActive ? "Active" : "Suspended"}</Badge>
+                  ) : c.subscriptionStatus ? (
+                    <Badge variant={SUB_STATUS_BADGE[c.subscriptionStatus] || "neutral"}>{c.subscriptionStatus}</Badge>
+                  ) : (
+                    "—"
+                  ),
+              },
+              {
+                key: "subscriptionEndDate",
+                label: "Expires",
+                render: (c) => (c.subscriptionEndDate ? new Date(c.subscriptionEndDate).toLocaleDateString() : "—"),
+              },
+            ]}
+            data={clients}
+            keyField="_id"
+            pagination={{ page, totalPages: meta.totalPages, total: meta.total, limit: PAGE_SIZE, onChange: setPage }}
+          />
+        )}
       </div>
     </div>
   );

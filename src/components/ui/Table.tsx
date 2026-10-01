@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
+import Pagination from "./Pagination.jsx";
 
 interface Column {
   key: string;
@@ -27,6 +28,16 @@ interface TableProps {
   // the caller. Omit both for the default, unchanged behavior.
   selectedKeys?: (string | number)[];
   onSelectionChange?: (keys: (string | number)[]) => void;
+  // Optional — when provided, renders a backend-driven pagination bar under
+  // the table, inside the same bordered box. Omit for the default, unpaginated
+  // table (used wherever the caller doesn't list from a paginated endpoint).
+  pagination?: {
+    page: number;
+    totalPages: number;
+    total: number;
+    limit: number;
+    onChange: (page: number) => void;
+  };
 }
 
 const ALIGN_CLASS = { left: "text-left", center: "text-center", right: "text-right" };
@@ -44,6 +55,7 @@ export default function Table({
   rowClassName,
   selectedKeys,
   onSelectionChange,
+  pagination,
 }: TableProps) {
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -121,89 +133,100 @@ export default function Table({
   }
 
   return (
-    <div
-      ref={scrollContainerRef}
-      onDragOver={onReorderColumns ? handleContainerDragOver : undefined}
-      className="overflow-x-auto rounded-2xl border border-border bg-surface"
-    >
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-border bg-surface-2">
-            {selectable && (
-              <th className="w-10 px-4 py-3">
-                <input
-                  ref={selectAllRef}
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleAll}
-                  aria-label="Select all rows"
-                  className="h-4 w-4 accent-brand"
-                />
-              </th>
-            )}
-            {columns.map((col) => {
-              const reorderable = !!onReorderColumns && !col.noReorder;
-              return (
-                <th
-                  key={col.key}
-                  draggable={reorderable}
-                  onDragStart={reorderable ? () => setDragKey(col.key) : undefined}
-                  onDragOver={
-                    reorderable
-                      ? (e) => {
-                          e.preventDefault();
-                          if (dragOverKey !== col.key) setDragOverKey(col.key);
-                        }
-                      : undefined
-                  }
-                  onDrop={
-                    reorderable
-                      ? (e) => {
-                          e.preventDefault();
-                          handleDrop(col.key);
-                        }
-                      : undefined
-                  }
-                  onDragEnd={reorderable ? stopDrag : undefined}
-                  className={`whitespace-nowrap px-4 py-3 font-semibold text-text-muted transition-colors ${ALIGN_CLASS[col.align || "left"]} ${
-                    reorderable ? "cursor-grab select-none" : ""
-                  } ${dragOverKey === col.key && dragKey !== col.key ? "bg-brand-soft" : ""}`}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {reorderable && <GripVertical size={12} className="shrink-0 text-text-muted/60" />}
-                    {col.label}
-                  </span>
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row) => (
-            <tr
-              key={row[keyField]}
-              className={`border-b border-border last:border-0 hover:bg-surface-2/60 ${rowClassName ? rowClassName(row) : ""}`}
-            >
+    <div className="rounded-2xl border border-border bg-surface">
+      <div
+        ref={scrollContainerRef}
+        onDragOver={onReorderColumns ? handleContainerDragOver : undefined}
+        className="overflow-x-auto"
+      >
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface-2">
               {selectable && (
-                <td className="w-10 px-4 py-3 align-middle">
+                <th className="w-10 px-4 py-3">
                   <input
+                    ref={selectAllRef}
                     type="checkbox"
-                    checked={selectedSet.has(row[keyField])}
-                    onChange={() => toggleRow(row[keyField])}
-                    aria-label="Select row"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Select all rows"
                     className="h-4 w-4 accent-brand"
                   />
-                </td>
+                </th>
               )}
-              {columns.map((col) => (
-                <td key={col.key} className={`whitespace-nowrap px-4 py-3 align-middle text-text ${ALIGN_CLASS[col.align || "left"]}`}>
-                  {col.render ? col.render(row) : row[col.key]}
-                </td>
-              ))}
+              {columns.map((col) => {
+                const reorderable = !!onReorderColumns && !col.noReorder;
+                return (
+                  <th
+                    key={col.key}
+                    draggable={reorderable}
+                    onDragStart={reorderable ? () => setDragKey(col.key) : undefined}
+                    onDragOver={
+                      reorderable
+                        ? (e) => {
+                            e.preventDefault();
+                            if (dragOverKey !== col.key) setDragOverKey(col.key);
+                          }
+                        : undefined
+                    }
+                    onDrop={
+                      reorderable
+                        ? (e) => {
+                            e.preventDefault();
+                            handleDrop(col.key);
+                          }
+                        : undefined
+                    }
+                    onDragEnd={reorderable ? stopDrag : undefined}
+                    className={`whitespace-nowrap px-4 py-3 font-semibold text-text-muted transition-colors ${ALIGN_CLASS[col.align || "left"]} ${
+                      reorderable ? "cursor-grab select-none" : ""
+                    } ${dragOverKey === col.key && dragKey !== col.key ? "bg-brand-soft" : ""}`}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {reorderable && <GripVertical size={12} className="shrink-0 text-text-muted/60" />}
+                      {col.label}
+                    </span>
+                  </th>
+                );
+              })}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((row) => (
+              <tr
+                key={row[keyField]}
+                className={`border-b border-border last:border-0 hover:bg-surface-2/60 ${rowClassName ? rowClassName(row) : ""}`}
+              >
+                {selectable && (
+                  <td className="w-10 px-4 py-3 align-middle">
+                    <input
+                      type="checkbox"
+                      checked={selectedSet.has(row[keyField])}
+                      onChange={() => toggleRow(row[keyField])}
+                      aria-label="Select row"
+                      className="h-4 w-4 accent-brand"
+                    />
+                  </td>
+                )}
+                {columns.map((col) => (
+                  <td key={col.key} className={`whitespace-nowrap px-4 py-3 align-middle text-text ${ALIGN_CLASS[col.align || "left"]}`}>
+                    {col.render ? col.render(row) : row[col.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {pagination && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          limit={pagination.limit}
+          onChange={pagination.onChange}
+        />
+      )}
     </div>
   );
 }
