@@ -81,7 +81,7 @@ export default function SupportPage() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-bold text-heading">Support</h1>
-          <p className="mt-1 text-sm text-text-muted">Raise a query or escalation to the Praxis team.</p>
+          <p className="mt-1 text-sm text-text-muted">Raise a query or escalation to the Ledgerly team.</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus size={16} /> New ticket

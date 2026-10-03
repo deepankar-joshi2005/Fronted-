@@ -41,6 +41,7 @@ import SubscriptionPage from "../pages/firm-admin/SubscriptionPage.jsx";
 import StaffPage from "../pages/firm-admin/StaffPage.jsx";
 import CrmPage from "../pages/firm-admin/CrmPage.jsx";
 import CompliancePage from "../pages/firm-admin/CompliancePage.jsx";
+import AiAssistantPage from "../pages/firm-admin/AiAssistantPage.jsx";
 import FinanceTrackerPage from "../pages/firm-admin/finance-tracker/FinanceTrackerPage.jsx";
 import ClientFinanceWorkspacePage from "../pages/firm-admin/finance-tracker/ClientFinanceWorkspacePage.jsx";
 import ClientAdminEmployeesPage from "../pages/client-admin/EmployeesPage.jsx";
@@ -126,6 +127,7 @@ export default function AppRoutes() {
               <Route path="staff" element={<StaffPage />} />
               <Route path="clients" element={<FirmBusinessClientsPage />} />
               <Route path="payroll-management" element={<PayrollManagementPage />} />
+              <Route path="ai-assistant" element={<AiAssistantPage />} />
             </Route>
 
             <Route element={<RoleRoute roles={[ROLES.CA_FIRM_ADMIN, ROLES.CA_FIRM_STAFF]} />}>

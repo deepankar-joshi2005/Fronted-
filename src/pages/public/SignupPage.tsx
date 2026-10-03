@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { Landmark } from "lucide-react";
 import SignupForm from "../../components/auth/SignupForm.jsx";
 import AuthShowcasePanel from "../../components/auth/AuthShowcasePanel.jsx";
 import ThemeToggle from "../../components/layout/ThemeToggle.jsx";
 import Card from "../../components/ui/Card.jsx";
+import { LogoMark, BRAND_NAME } from "../../components/ui/Logo.jsx";
 
 export default function SignupPage() {
   return (
@@ -15,9 +15,9 @@ export default function SignupPage() {
       <div className="flex items-center justify-center border-b border-border py-5">
         <Link to="/" className="flex items-center gap-2">
           <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-lg text-white">
-            <Landmark size={19} />
+            <LogoMark className="h-5 w-5" />
           </div>
-          <span className="text-lg font-bold text-heading">Praxis</span>
+          <span className="text-lg font-bold text-heading">{BRAND_NAME}</span>
         </Link>
       </div>
 

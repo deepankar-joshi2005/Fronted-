@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Landmark, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth.js";
 import { ROLE_LABELS } from "../../config/roles.js";
 import * as businessClientApi from "../../api/businessClient.api.js";
@@ -7,6 +7,7 @@ import { BUSINESS_CLIENT_ROLES, redirectToHrms } from "../../utils/hrmsSso.js";
 import Card from "../../components/ui/Card.jsx";
 import Button from "../../components/ui/Button.jsx";
 import Spinner from "../../components/ui/Spinner.jsx";
+import { LogoMark, BRAND_NAME } from "../../components/ui/Logo.jsx";
 
 function BusinessClientWelcome({ user }) {
   const [client, setClient] = useState(null);
@@ -51,7 +52,7 @@ function BusinessClientWelcome({ user }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 py-16 text-center">
       <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-soft text-brand">
-        <Landmark size={26} />
+        <LogoMark className="h-6.5 w-6.5" />
       </span>
       <h1 className="text-2xl font-bold text-heading">Welcome, {user?.name?.split(" ")[0]}</h1>
       <p className="text-sm text-text-muted">
@@ -96,9 +97,9 @@ export default function WelcomePage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 py-16 text-center">
       <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-soft text-brand">
-        <Landmark size={26} />
+        <LogoMark className="h-6.5 w-6.5" />
       </span>
-      <h1 className="text-2xl font-bold text-heading">Welcome to Praxis, {user?.name?.split(" ")[0]}</h1>
+      <h1 className="text-2xl font-bold text-heading">Welcome to {BRAND_NAME}, {user?.name?.split(" ")[0]}</h1>
       <p className="text-sm text-text-muted">
         You're signed in as {ROLE_LABELS[user?.role]}. Your modules are being built and will appear in the sidebar
         as they ship.

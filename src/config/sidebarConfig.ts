@@ -13,6 +13,7 @@ import {
   UserCog,
   CreditCard,
   BarChart3,
+  Bot,
 } from "lucide-react";
 import { ROLES } from "./roles.js";
 
@@ -35,6 +36,7 @@ export const SIDEBAR_CONFIG = {
   // and Personal Finance Tracker, plus staff and business-client management.
   [ROLES.CA_FIRM_ADMIN]: [
     { label: "Dashboard", icon: LayoutDashboard, path: "" },
+    { label: "AI Assistant", icon: Bot, path: "ai-assistant" },
     { label: "CRM", icon: Contact2, path: "crm" },
     { label: "Compliance Tool", icon: ClipboardCheck, path: "compliance" },
     { label: "Personal Finance Tracker", icon: PiggyBank, path: "finance-tracker" },

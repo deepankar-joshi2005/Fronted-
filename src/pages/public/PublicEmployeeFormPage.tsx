@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Landmark, Lock, CheckCircle2 } from "lucide-react";
+import { Lock, CheckCircle2 } from "lucide-react";
 import * as publicEmployeeFormApi from "../../api/publicEmployeeForm.api.js";
+import { LogoMark, BRAND_NAME } from "../../components/ui/Logo.jsx";
 import Input from "../../components/ui/Input.jsx";
 import Select from "../../components/ui/Select.jsx";
 import Button from "../../components/ui/Button.jsx";
@@ -38,9 +39,9 @@ function Header({ companyName }: { companyName?: string }) {
     <header className="border-b border-border bg-surface/80 py-4">
       <div className="mx-auto flex max-w-2xl items-center gap-2.5 px-4 sm:px-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl brand-gradient text-white">
-          <Landmark size={18} />
+          <LogoMark className="h-4.5 w-4.5" />
         </div>
-        <span className="text-lg font-bold text-heading">Praxis</span>
+        <span className="text-lg font-bold text-heading">{BRAND_NAME}</span>
         {companyName && <span className="ml-auto text-sm text-text-muted">for {companyName}</span>}
       </div>
     </header>

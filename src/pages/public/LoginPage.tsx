@@ -1,10 +1,9 @@
 import { Link } from "react-router-dom";
-import { Landmark } from "lucide-react";
 import LoginForm from "../../components/auth/LoginForm.jsx";
 import AuthShowcasePanel from "../../components/auth/AuthShowcasePanel.jsx";
 import ThemeToggle from "../../components/layout/ThemeToggle.jsx";
 import Card from "../../components/ui/Card.jsx";
-//comment add 
+import { LogoMark, BRAND_NAME } from "../../components/ui/Logo.jsx";
 
 export default function LoginPage() {
   return (
@@ -16,9 +15,9 @@ export default function LoginPage() {
       <div className="flex items-center justify-center border-b border-border py-5">
         <Link to="/" className="flex items-center gap-2">
           <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-lg text-white">
-            <Landmark size={19} />
+            <LogoMark className="h-5 w-5" />
           </div>
-          <span className="text-lg font-bold text-heading">Praxis</span>
+          <span className="text-lg font-bold text-heading">{BRAND_NAME}</span>
         </Link>
       </div>
 
@@ -32,12 +31,12 @@ export default function LoginPage() {
 
         <Card className="w-full max-w-md shrink-0 rounded-3xl p-8 shadow-xl sm:p-10 lg:w-110">
           <h1 className="text-center text-[32px] font-bold text-heading">Welcome back</h1>
-          <p className="mt-2 text-center text-base text-text-muted">Log in to your Praxis account.</p>
+          <p className="mt-2 text-center text-base text-text-muted">Log in to your {BRAND_NAME} account.</p>
           <div className="mt-8">
             <LoginForm />
           </div>
           <p className="mt-7 text-center text-sm text-text-muted">
-            New to Praxis?{" "}
+            New to {BRAND_NAME}?{" "}
             <Link to="/signup" className="font-semibold text-brand hover:underline">
               Start your free trial
             </Link>

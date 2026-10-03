@@ -87,7 +87,7 @@ export default function SubscriptionPage() {
         key: keyId,
         amount: orderAmount,
         currency: orderCurrency,
-        name: "Praxis",
+        name: "Ledgerly",
         description: `${TIER_LABELS[tier]} plan (${billingCycle}) for ${firmName}`,
         order_id: orderId,
         prefill: { name: user?.name, email: user?.email },

@@ -17,6 +17,11 @@ import {
   Paperclip,
   Download,
   X as XIcon,
+  Receipt,
+  Percent,
+  Building2,
+  Landmark,
+  FileText,
 } from "lucide-react";
 import * as complianceApi from "../../api/compliance.api.js";
 import * as crmApi from "../../api/crm.api.js";
@@ -43,6 +48,18 @@ const CATEGORY_LABELS = { gst: "GST", tds: "TDS", roc: "ROC", income_tax: "Incom
 const RECURRENCE_LABELS = { one_time: "One-time", monthly: "Monthly", quarterly: "Quarterly", annual: "Annual" };
 const STATUS_LABELS = { pending: "Pending", in_progress: "In Progress", done: "Done" };
 const STATUS_BADGE = { pending: "neutral", in_progress: "brand", done: "success" };
+
+// One dashboard card per "Main task" category — icon + accent color so GST,
+// TDS, ROC, Income Tax and Other are visually distinct at a glance.
+const CATEGORY_ICONS = { gst: Receipt, tds: Percent, roc: Building2, income_tax: Landmark, other: FileText };
+const CATEGORY_ICON_STYLES = {
+  gst: "bg-brand-soft text-brand",
+  tds: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  roc: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  income_tax: "bg-success-bg text-success",
+  other: "bg-surface-2 text-text-muted",
+};
+const EMPTY_CATEGORY_COUNTS = { pending: 0, in_progress: 0, done: 0, total: 0 };
 
 // Every category's real-world filing/subtype vocabulary — powers the Subcategory
 // select (dependent on Category) and the "Start from a template" picker. Not a
@@ -993,6 +1010,48 @@ export default function CompliancePage() {
             <p className="mt-3 text-2xl font-bold text-heading">{dashboard.counts.done || 0}</p>
             <p className="text-xs text-text-muted">{STATUS_LABELS.done}</p>
           </Card>
+        </div>
+      )}
+
+      {dashboard && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          {Object.entries(CATEGORY_LABELS).map(([key, label]) => {
+            const Icon = CATEGORY_ICONS[key];
+            const c = dashboard.byCategory?.[key] || EMPTY_CATEGORY_COUNTS;
+            const active = categoryFilters.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  toggleCategoryFilter(key);
+                  setView("list");
+                }}
+                className={`rounded-2xl border p-4 text-left shadow-sm transition-colors ${
+                  active ? "border-brand bg-brand-soft/30" : "border-border bg-surface hover:border-brand/40"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${CATEGORY_ICON_STYLES[key]}`}>
+                    <Icon size={18} />
+                  </div>
+                  <span className="text-2xl font-bold text-heading">{c.total}</span>
+                </div>
+                <p className="mt-3 text-sm font-semibold text-heading">{label}</p>
+                <div className="mt-2 flex items-center gap-2.5 text-xs">
+                  <span className="flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400" title={STATUS_LABELS.pending}>
+                    <Hourglass size={11} /> {c.pending}
+                  </span>
+                  <span className="flex items-center gap-1 font-medium text-brand" title={STATUS_LABELS.in_progress}>
+                    <ListChecks size={11} /> {c.in_progress}
+                  </span>
+                  <span className="flex items-center gap-1 font-medium text-success" title={STATUS_LABELS.done}>
+                    <CheckCircle2 size={11} /> {c.done}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 

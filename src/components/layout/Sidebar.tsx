@@ -1,9 +1,10 @@
-import { Landmark, ChevronsLeft, ChevronsRight, LogOut, X } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, LogOut, X } from "lucide-react";
 import { useUiStore } from "../../store/uiStore.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import { SIDEBAR_CONFIG } from "../../config/sidebarConfig.js";
 import { ROLE_LABELS, ROLES } from "../../config/roles.js";
 import SidebarItem from "./SidebarItem.jsx";
+import { LogoMark, BRAND_NAME } from "../ui/Logo.jsx";
 
 export default function Sidebar() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -22,11 +23,11 @@ export default function Sidebar() {
     <div className="sidebar-gradient flex h-full flex-col border-r border-sidebar-border">
       <div className="flex items-center gap-2.5 px-4 py-5">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
-          <Landmark size={18} />
+          <LogoMark className="h-4.5 w-4.5" />
         </div>
         {!collapsed && (
           <div className="min-w-0">
-            <p className="truncate text-base font-bold text-white">Praxis</p>
+            <p className="truncate text-base font-bold text-white">{BRAND_NAME}</p>
             <p className="truncate text-[11px] text-sidebar-text-muted">{ROLE_LABELS[user?.role]}</p>
           </div>
         )}
@@ -39,7 +40,7 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+      <nav className="sidebar-nav-scroll flex-1 space-y-1 overflow-y-auto px-3 py-2">
         {items.map((item) => (
           <SidebarItem
             key={item.path}

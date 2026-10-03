@@ -705,10 +705,10 @@ export default function LandingPage() {
           {/* Right: Content & CTA */}
           <div className="text-center md:text-left flex-1">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">
-              Ready to run your practice on Praxis?
+              Ready to run your practice on Ledgerly?
             </h2>
             <p className="mt-3 text-slate-500 dark:text-slate-400 text-base">
-              Join thousands of learners and teams already using Praxis.
+              Join thousands of learners and teams already using Ledgerly.
             </p>
             <div className="mt-6">
               <Link
